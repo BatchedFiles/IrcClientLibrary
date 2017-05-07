@@ -4,13 +4,84 @@
 
 Библиотека использует синхронную событийную модель функций обратного вызова. Каждое пришедшее сообщение от сервера разбирается по шаблонам, вызывая соответствующие обработчики событий.
 
+Функции библиотеки инкапсулированы в класс `IrcClient`.
+
+## Быстрый старт
+
+Этот пример показывает как легко создать соединение с сервером IRC, зайти на канал и отправить сообщение.
+
+Подключаем заголовочные файлы:
+
+```FreeBASIC
+#include once "Irc.bi"
+#include once "IrcEvents.bi"
+#include once "IrcReplies.bi"
+~~~
+
+Определяем параметры подключения к серверу:
+
+```FreeBASIC
+' Имя сервера
+Const Server = "chat.freenode.net"
+' Порт
+Const Port = "6667"
+' Пароль на соединение с сервером, в данном случае пуст
+Const Password = ""
+' Ник бота
+Const Nick = "LeoFitz"
+' Юзер‐строка, необходима для идентификации
+Const UserString = "LeoFitz"
+' Описание бота
+Const Description = "IRC bot written in FreeBASIC"
+' IP‐адрес и порт, с которых будут идти соединения с сервером
+Const LocalAddress = "0.0.0.0"
+Const LocalPort = "0"
+```
+
+Основной код:
+
+```FreeBASIC
+' Создаём объект для работы с IRC
+Dim Shared objClient As IrcClient
+
+' Установливаем обработчики событий
+With objClient
+	.ServerMessageEvent = @ServerMessage
+	.PrivateMessageEvent = @IrcPrivateMessage
+End With
+
+' Открываем соединение с сервером
+' Параметры:
+' Сервер, порт, локальный адрес, локальный порт, пароль на сервер, ник, юзер‐строка, описание, режим видимости
+If objClient.OpenIrc(Server, Port, LocalAddress, LocalPort, Password, Nick, UserString, Description, False) = ResultType.None Then
+	' Всё идёт по плану
+	' Входим в бесконечный цикл получения данных от сервера
+	Do
+	Loop While objClient.GetData() = ResultType.None
+	' Закрыть
+	objClient.CloseIrc()
+End If
+
+' Любое серверное сообщение
+Public Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
+	If *ServerCode = RPL_WELCOME Then
+		' Сервер приветствует нас
+		' Присоединиться к каналу
+		objClient.JoinChannel("##freebasic-ru")
+		' Отправить сообщение на канал
+		objClient.SendIrcMessage("##freebasic-ru", "Всем привет!")
+	End If
+	Return ResultType.None
+End Function
+
 
 ## Перечисления ##
 
 ### ResultType ###
 
-Перечисление ResultType, возвращается почти всеми функциями объекта IrcClient. Является результатом выполнения запроса приёма‐отправки данных по сети. При получении отличающегося от ResultType.None значения рекомендуется закрыть соединение с сервером.
+Большинство функций объекта `Ircclient` возвращают значение `ResultType`.
 
+```FreeBASIC
 ' Результат выполнения запроса приёма отправки данных
 Enum ResultType
 	' Ошибки нет
@@ -24,6 +95,26 @@ Enum ResultType
 	' Ошибка сервера
 	ServerError
 End Enum
+```
+
+### CtcpMessageType ###
+
+Перечисление `CtcpMessageType` необходимо в CTCP‐сообщениях.
+
+```FreeBASIC
+' Тип сообщения CTCP
+Enum CtcpMessageType
+	Ping
+	Time
+	UserInfo
+	Version
+	Action
+	ClientInfo
+	Echo
+	Finger
+	Utc
+End Enum
+```
 
 ## Поля ##
 
