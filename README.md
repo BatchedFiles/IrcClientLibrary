@@ -16,7 +16,7 @@
 #include once "Irc.bi"
 #include once "IrcEvents.bi"
 #include once "IrcReplies.bi"
-~~~
+```
 
 Определяем параметры подключения к серверу:
 
