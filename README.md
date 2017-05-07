@@ -73,7 +73,7 @@ Public Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WStr
 	End If
 	Return ResultType.None
 End Function
-
+```
 
 ## Перечисления ##
 
