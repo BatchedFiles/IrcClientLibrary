@@ -1,4 +1,4 @@
-# IrcClientLibrary #
+# IrcClientLibrary
 
 Клиентская библиотека для работы с протоколом IRC. Инкапсулирует в себе низкоуровневую работу с сокетами, приём и отправку сообщений, автоматические ответы на пинг от сервера. Пригодна для создания ботов, клиентских программ и для работы с IRC‐протоколом.
 
@@ -42,42 +42,62 @@ Const LocalPort = "0"
 
 ```FreeBASIC
 ' Создаём объект для работы с IRC
-Dim Shared objClient As IrcClient
+Dim Shared Client As IrcClient
+
+' Кодировка
+Client.CodePage = CP_UTF8
 
 ' Установливаем обработчики событий
-With objClient
-	.ServerMessageEvent = @ServerMessage
-	.PrivateMessageEvent = @IrcPrivateMessage
-End With
+Client.ServerMessageEvent = @ServerMessage
+Client.PrivateMessageEvent = @IrcPrivateMessage
 
 ' Открываем соединение с сервером
 ' Параметры:
 ' Сервер, порт, локальный адрес, локальный порт, пароль на сервер, ник, юзер‐строка, описание, режим видимости
-If objClient.OpenIrc(Server, Port, LocalAddress, LocalPort, Password, Nick, UserString, Description, False) = ResultType.None Then
+If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, Password, Nick, UserString, Description, False) = ResultType.None Then
 	' Всё идёт по плану
-	' Входим в бесконечный цикл получения данных от сервера
+	
+	Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
+	Dim intResult As ResultType = Any
+	
+	' Бесконечный цикл получения данных от сервера до тех пор, пока не будет ошибок
 	Do
-	Loop While objClient.GetData() = ResultType.None
+		intResult = objClient.ReceiveData(@strReceiveBuffer)
+		intResult = objClient.ParseData(@strReceiveBuffer)
+	Loop While intResult = ResultType.None
+	
 	' Закрыть
-	objClient.CloseIrc()
+	Client.CloseIrc()
 End If
 
 ' Любое серверное сообщение
-Public Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
+Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
 	If *ServerCode = RPL_WELCOME Then
 		' Сервер приветствует нас
 		' Присоединиться к каналу
-		objClient.JoinChannel("##freebasic-ru")
+		Client.JoinChannel("##freebasic-ru")
 		' Отправить сообщение на канал
-		objClient.SendIrcMessage("##freebasic-ru", "Всем привет!")
+		Client.SendIrcMessage("##freebasic-ru", "Всем привет!")
 	End If
 	Return ResultType.None
 End Function
+
+' Личное сообщение
+Function IrcPrivateMessage(ByVal AdvData As Any Ptr, ByVal User As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
+	' Команда от админа
+	If *User = AdminNick Then
+		Dim intMemory As UInteger = Fre()
+		objClient.SendIrcMessage(AdminNick, "Количество свободной памяти в байтах = " & WStr(intMemory))
+	End If
+	Return ResultType.None
+End Function
+
 ```
 
-## Перечисления ##
+## Перечисления
 
-### ResultType ###
+
+### ResultType
 
 Большинство функций объекта `Ircclient` возвращают значение `ResultType`.
 
@@ -97,7 +117,8 @@ Enum ResultType
 End Enum
 ```
 
-### CtcpMessageType ###
+
+### CtcpMessageType
 
 Перечисление `CtcpMessageType` необходимо в CTCP‐сообщениях.
 
@@ -116,13 +137,16 @@ Enum CtcpMessageType
 End Enum
 ```
 
-## Поля ##
 
-### ExtendedData As Any Ptr ###
+## Поля
+
+
+### ExtendedData As Any Ptr
 
 Дополнительное поле для хранения указателя на любые данные, указанные пользователем. Этот указатель будет отправляться в каждом событии, генерируемом классом IrcClient.
 
-## Методы ##
+
+## Методы
 
 Declare Function OpenIrc(ByVal Server As WString Ptr, _
 ByVal Port As WString Ptr, _
