@@ -165,6 +165,8 @@ End Enum
 
 ### OpenIrc
 
+Открывает соединение с сервером.
+
 ```FreeBASIC
 Declare Function OpenIrc(ByVal Server As WString Ptr, _
 ByVal Port As WString Ptr, _
@@ -176,8 +178,6 @@ ByVal User As WString Ptr, _
 ByVal Description As WString Ptr, _
 ByVal Visible As Boolean)As ResultType
 ```
-
-Функция создаёт строку подключения, инициализирует библиотеку сокетов, открывает соединение с сервером и отправляет строку подключения на сервер. Также функция устанавливает интервал ожидания на чтение данных от сервера в течение минут.
 
 Параметры:
 
@@ -198,6 +198,9 @@ ByVal Visible As Boolean)As ResultType
 `Description` — строка‐описание пользователя, может содержать пробелы и спецсимволы, не меняется в течение всего соединения.
 
 `Visible` — флаг видимости для других пользователей.
+
+Функция создаёт строку подключения, инициализирует библиотеку сокетов, открывает соединение с сервером и отправляет строку подключения на сервер. Также функция устанавливает интервал ожидания на чтение данных от сервера в течение десяти минут.
+
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
@@ -298,4 +301,4 @@ ByVal Visible As Boolean)As ResultType
 	Declare Function SendRawMessage(ByVal strRawText As WString Ptr)As ResultType
 	
 	
-
+## События
