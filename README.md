@@ -6,6 +6,14 @@
 
 Функции библиотеки инкапсулированы в класс `IrcClient`.
 
+
+## Компиляция
+
+```Batch
+fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas
+```
+
+
 ## Быстрый старт
 
 Этот пример показывает как легко создать соединение с сервером IRC, зайти на канал и отправить сообщение.
@@ -26,7 +34,7 @@ Const Server = "chat.freenode.net"
 ' Порт
 Const Port = "6667"
 ' Пароль на соединение с сервером, в данном случае пуст
-Const Password = ""
+Const ServerPassword = ""
 ' Ник бота
 Const Nick = "LeoFitz"
 ' Юзер‐строка, необходима для идентификации
@@ -36,6 +44,7 @@ Const Description = "IRC bot written in FreeBASIC"
 ' IP‐адрес и порт, с которых будут идти соединения с сервером
 Const LocalAddress = "0.0.0.0"
 Const LocalPort = "0"
+Const Channel = "##freebasic-ru"
 ```
 
 Основной код:
@@ -54,7 +63,7 @@ Client.PrivateMessageEvent = @IrcPrivateMessage
 ' Открываем соединение с сервером
 ' Параметры:
 ' Сервер, порт, локальный адрес, локальный порт, пароль на сервер, ник, юзер‐строка, описание, режим видимости
-If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, Password, Nick, UserString, Description, False) = ResultType.None Then
+If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, ServerPassword, Nick, UserString, Description, False) = ResultType.None Then
 	' Всё идёт по плану
 	
 	Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
@@ -75,9 +84,9 @@ Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr
 	If *ServerCode = RPL_WELCOME Then
 		' Сервер приветствует нас
 		' Присоединиться к каналу
-		Client.JoinChannel("##freebasic-ru")
+		Client.JoinChannel(Channel)
 		' Отправить сообщение на канал
-		Client.SendIrcMessage("##freebasic-ru", "Всем привет!")
+		Client.SendIrcMessage(Channel, "Всем привет!")
 	End If
 	Return ResultType.None
 End Function
@@ -91,8 +100,8 @@ Function IrcPrivateMessage(ByVal AdvData As Any Ptr, ByVal User As WString Ptr, 
 	End If
 	Return ResultType.None
 End Function
-
 ```
+
 
 ## Перечисления
 
@@ -102,18 +111,17 @@ End Function
 Большинство функций объекта `Ircclient` возвращают значение `ResultType`.
 
 ```FreeBASIC
-' Результат выполнения запроса приёма отправки данных
 Enum ResultType
 	' Ошибки нет
 	None
-	' Ошибка инициализации
+	' Ошибка инициализации библиотеки сокетов
 	WSAError
 	' Ошибка сети
 	SocketError
-	' Пользователь отменил данные
-	UserCancel
-	' Ошибка сервера
+	' Ошибка IRC‐сервера
 	ServerError
+	' Пользователь отменил обработку данных
+	UserCancel
 End Enum
 ```
 
@@ -123,7 +131,6 @@ End Enum
 Перечисление `CtcpMessageType` необходимо в CTCP‐сообщениях.
 
 ```FreeBASIC
-' Тип сообщения CTCP
 Enum CtcpMessageType
 	Ping
 	Time
@@ -143,11 +150,22 @@ End Enum
 
 ### ExtendedData As Any Ptr
 
-Дополнительное поле для хранения указателя на любые данные, указанные пользователем. Этот указатель будет отправляться в каждом событии, генерируемом классом IrcClient.
+Дополнительное поле для хранения указателя на любые данные. Этот указатель будет отправляться в каждом событии, генерируемом классом `IrcClient`.
+
+
+### CodePage
+
+Кодировка данных, используемая для преобразования байт в строку. Например: CP_UTF8, 1251.
 
 
 ## Методы
 
+Почти все методы возвращают значение типа `ResultType`. Если результат не равен `ResultType.None`, то рекомендуется закрыть соединение функцией `CloseIrc`.
+
+
+### OpenIrc
+
+```FreeBASIC
 Declare Function OpenIrc(ByVal Server As WString Ptr, _
 ByVal Port As WString Ptr, _
 ByVal LocalServer As WString Ptr, _
@@ -157,88 +175,127 @@ ByVal Nick As WString Ptr, _
 ByVal User As WString Ptr, _
 ByVal Description As WString Ptr, _
 ByVal Visible As Boolean)As ResultType
+```
+
+Функция создаёт строку подключения, инициализирует библиотеку сокетов, открывает соединение с сервером и отправляет строку подключения на сервер. Также функция устанавливает интервал ожидания на чтение данных от сервера в течение минут.
+
+Параметры:
+
+`Server` — имя сервера для соединения (доменное имя или IP‐адрес, например, chat.freenode.net).
+
+`Port` — строка, содержащая номер порта для соединения, например, 6667.
+
+`LocalServer` — локальный IP‐адрес, к которому будет привязан клиент и с которого будет идти соединение, например, 0.0.0.0.
+
+`LocalPort` — локальный порт, к которому будет привязан клиент и с которго будет идти соединение, например, 0.
+
+`Password` — пароль на IRC‐сервер, если для соединения с сервером нужен пароль, иначе можно оставить пустой строкой.
+
+`Nick` — ник (имя пользователя), не должен содержать пробелов и спец‐символов.
+
+`User` — строка‐идентификатор пользователя, обычно имя программы‐клиента, которым пользуются, не может содержать пробелов, не меняется в течение всего соединения.
+
+`Description` — строка‐описание пользователя, может содержать пробелы и спецсимволы, не меняется в течение всего соединения.
+
+`Visible` — флаг видимости для других пользователей.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
-	<table>
+### ReceiveData
 
-	<tr>
-	<td>OpenIrc(ByRef Server As WString, ByRef Port As WString, ByRef Password As WString, ByRef Nick As WString, ByRef User As WString, ByRef Description As WString, ByVal Visible As Boolean)As ResultType</td>
-	<td><p>Открывает соединение с IRC‐сервером. Параметры:</p>
-	<ul>
-	<li>Server — имя сервера (доменное имя, например, chat.freenode.net) для соединения;</li>
-	<li>Port — строка, содержащая номер порта для соединения, например, 6667;</li>
-	<li>Password — пароль, если для соединения с сервером нужен пароль, иначе можно оставить пустой строкой;</li>
-	<li>Nick — ник (имя пользователя), не должен содержать пробелов и спец‐символов;</li>
-	<li>User — юзер‐строка, некий идентификатор пользователя (обычно имя программы‐клиента, которым пользуется пользователь), не должен содержать пробелов, не может быть изменена в течение всего соединения;</li>
-	<li>Description — описание пользователя, может содержать пробелы и спецсимволы, не может быть изменено в течение всего соединения;</li>
-	<li>Visible — флаг видимости для других пользователей.</li>
-	</ul>
-	<p>Возвращает значение типа ResultType, по которому можно определить код ошибки.</p></td>
-	</tr>
+Получает данные от сервера. Если в течение десяти минут данные не будут получены, то функция завершается ошибкой.
 
-	<tr>
-	<td>GetData()As ResultType</td>
-	<td>Ожидание получения данных от сервера и запуск обработки. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+Параметры:
+
+`strReturnedString` — указатель на строку, куда будут записаны данные сервера. Размер буфера под строку должен быть не менее IrcClient.MaxBytesCount символов + 1 под нулевой.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
-	<tr>
-	<td>CloseIrc()</td>
-	<td>Убивает соединение с сервером. Приём данных с сервера прекращается.</td>
-	</tr>
+### ParseData
 
-	<tr>
-	<td>SendIrcMessage(ByRef strChannel As WString, ByRef strMessageText As WString)As ResultType</td>
-	<td>Отправляет сообщение пользователю. strChannel может быть именем пользователя или канала. Если strChannel — это имя пользователя, то отправляется сообщение, которое доступно только этому пользователю, если strChannel — это имя канала, то сообщение отправится в канал и будет доступно всем, сидящим на канале. strMessageText — текст сообщения. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+Разбирает пришедшие с сервера данные и вызывает обработчики событий.
 
-	<tr>
-	<td>SendNotice(ByRef strChannel As WString, ByRef strNoticeText As  WString)As ResultType</td>
-	<td>Отправляет уведомление пользователю или на канал. Уведомление аналогично личному сообщению с той разницей, что на него не требуется отвечать. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+Параметры:
 
-	<tr>
-	<td>ChangeTopic(ByRef strChannel As WString, ByRef strTopic As WString)As ResultType</td>
-	<td>Устанавливает тему канала. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+`strReceiveBuffer` — указатель на строку данных сервера. Размер строки должен быть не менее IrcClient.MaxBytesCount символов + 1 под нулевой
 
-	<tr>
-	<td>QuitFromServer(ByRef strMessageText As WString)As ResultType</td>
-	<td>Выходит из IRC‐сети. В качестве прощального сообщения можно установить strMessageText. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
-	<tr>
-	<td>ChangeNick(ByRef Nick As WString)As ResultType</td>
-	<td>Меняет ник текущего пользователя. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
 
-	<tr>
-	<td>JoinChannel(ByRef strChannel As WString)As ResultType</td>
-	<td>Присоединяет к каналу. Имя канала должно начинаться с символов «&amp;», «#», «+» или «!», но обычно это «#», длина строки с именем не должна превышать 50 символов. Если канал до этого не существовал, он будет создан. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+### CloseIrc
 
-	<tr>
-	<td>PartChannel(ByRef strChannel As  WString, ByRef strMessageText As WString)As ResultType</td>
-	<td>Покидает канал. В качестве прощального сообщения можно установить strMessageText. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+Закрывает соединение с сервером. Приём данных с сервера прекращается. Сообщение о выходе не отправляется.
 
-	<tr>
-	<td>SendCtcpMessage(ByRef strChannel As  WString, ByVal iType As CtcpMessageType, ByRef Param As WString)As ResultType</td>
-	<td>Отправка CTCP‐запроса. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+Функция не возвращает значений.
 
-	<tr>
-	<td>SendCtcpNotice(ByRef strChannel As  WString, ByVal iType As CtcpMessageType, ByRef NoticeText As WString)As ResultType</td>
-	<td>Отправка CTCP‐ответа. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
 
-	<tr>
-	<td>SendRawMessage(ByRef strRawText As WString)As ResultType</td>
-	<td>Отправляет сырую IRC‐команду. Возвращает значение типа ResultType, по которому можно определить код ошибки.</td>
-	</tr>
+### SendIrcMessage
 
-	</table>
+Отправляет сообщение на канал или личное сообщение пользователю.
 
-<h3>События IrcClient</h3>
+Параметры:
 
--->
+`strChannel` — пользователь или канал.
+
+`strMessageText` — текст сообщения.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### SendNotice
+
+Отправляет уведомление пользователю.
+
+Параметры:
+
+`strChannel` — имя пользователя.
+
+`strNoticeText` — текст уведомления.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### ChangeTopic
+
+Устанавливает тему канала.
+
+Параметры:
+
+`strChannel` — канал.
+
+`strTopic` — новая тема.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### QuitFromServer
+
+Отправляет на сервер сообщение о выходе с сервера, что вынуждает сервер закрыть соединение.
+
+Параметры:
+
+`strMessageText` — текст прощального сообщения. Необязателен.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+	' Смена ника
+	Declare Function ChangeNick(ByVal Nick As WString Ptr)As ResultType
+	' Присоединение к каналу
+	Declare Function JoinChannel(ByVal strChannel As WString Ptr)As ResultType
+	' Отсоединение от канала
+	Declare Function PartChannel(ByVal strChannel As WString Ptr, ByVal strMessageText As WString Ptr)As ResultType
+	' Отправка CTCP-запроса
+	Declare Function SendCtcpMessage(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal Param As WString Ptr)As ResultType
+	' Отправка CTCP-ответа
+	Declare Function SendCtcpNotice(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal NoticeText As WString Ptr)As ResultType
+	' Отправка сообщения PONG
+	Declare Function SendPong(ByVal strServer As WString Ptr)As ResultType
+	' Отправка сообщения PING
+	Declare Function SendPing(ByVal strServer As WString Ptr)As ResultType
+	' Отправка сырого сообщения
+	Declare Function SendRawMessage(ByVal strRawText As WString Ptr)As ResultType
+	
+	
+
