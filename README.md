@@ -71,7 +71,9 @@ If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, ServerPassword, Nick, U
 	
 	' Бесконечный цикл получения данных от сервера до тех пор, пока не будет ошибок
 	Do
-		intResult = objClient.ReceiveData(@strReceiveBuffer)
+		If objClient.ReceiveData(@strReceiveBuffer) <> ResultType.None Then
+			Exit Do
+		End If
 		intResult = objClient.ParseData(@strReceiveBuffer)
 	Loop While intResult = ResultType.None
 	
