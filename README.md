@@ -264,13 +264,19 @@ ByVal Visible As Boolean)As ResultType
 
 ### ChangeTopic
 
-Устанавливает тему канала.
+Устанавливает, удаляет или получает тему канала.
 
 Параметры:
 
 `strChannel` — канал.
 
 `strTopic` — новая тема.
+
+Если `strTopic` — нулевой указатель `NULL`, то в ответ сервер отправит тему канала. Сервер ответит кодами `RPL_TOPIC`, если тема существует, или `RPL_NOTOPIC`, если её нет вообще.
+
+Если `strTopic` — указатель на пустую строку, то текущая тема будет удалена.
+
+Иначе будет установлена тема, указанная в `strTopic`.
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
@@ -285,20 +291,60 @@ ByVal Visible As Boolean)As ResultType
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
-	' Смена ника
-	Declare Function ChangeNick(ByVal Nick As WString Ptr)As ResultType
-	' Присоединение к каналу
-	Declare Function JoinChannel(ByVal strChannel As WString Ptr)As ResultType
-	' Отсоединение от канала
-	Declare Function PartChannel(ByVal strChannel As WString Ptr, ByVal strMessageText As WString Ptr)As ResultType
-	' Отправка CTCP-запроса
-	Declare Function SendCtcpMessage(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal Param As WString Ptr)As ResultType
-	' Отправка CTCP-ответа
-	Declare Function SendCtcpNotice(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal NoticeText As WString Ptr)As ResultType
+
+### ChangeNick
+
+Меняет ник пользователя.
+
+Параметры:
+
+`Nick` — новый ник.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### JoinChannel
+
+Присоединяет пользователя к каналу или каналам.
+
+Параметры:
+
+`strChannel` — список каналов, разделённый запятыми без пробелов. Если на канале установлен пароль, то через пробел указываются пароли для входа, разделённые запятыми без пробелов.
+
+Пример:
+
+```FreeBASIC
+' Присоединение к каналам
+Client.JoinChannel("#freebasic,#freebasic-ru")
+
+' Присоединение к каналам с указанием для первого канала пароля
+Client.JoinChannel("#freebasic,#freebasic-ru password1")
+```
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### PartChannel
+
+Отключает пользователя от канала.
+
+Параметры:
+
+`strChannel` — канал для выхода.
+
+`strMessageText` — прощальное сообщение. Необязательно.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
 	' Отправка сообщения PONG
 	Declare Function SendPong(ByVal strServer As WString Ptr)As ResultType
 	' Отправка сообщения PING
 	Declare Function SendPing(ByVal strServer As WString Ptr)As ResultType
+	
+	' Отправка CTCP-запроса
+	Declare Function SendCtcpMessage(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal Param As WString Ptr)As ResultType
+	' Отправка CTCP-ответа
+	Declare Function SendCtcpNotice(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal NoticeText As WString Ptr)As ResultType
 	' Отправка сырого сообщения
 	Declare Function SendRawMessage(ByVal strRawText As WString Ptr)As ResultType
 	
