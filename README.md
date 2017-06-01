@@ -130,8 +130,6 @@ Enum ResultType
 	SocketError
 	' Ошибка IRC‐сервера
 	ServerError
-	' Пользователь отменил обработку данных
-	UserCancel
 End Enum
 ```
 
@@ -185,6 +183,7 @@ Const MaxBytesCount As Integer = 512
 
 Дополнительное поле для хранения указателя на любые данные. Этот указатель будет отправляться в каждом событии, генерируемом классом `IrcClient`.
 
+```FreeBASIC
 Dim ExtendedData As Any Ptr
 ```
 
@@ -312,9 +311,12 @@ Declare Function ReceiveData(ByVal strReturnedString As WString Ptr)As ResultTyp
 
 Функция вызывает событие `ReceivedRawMessageEvent`.
 
-Обычно функцию `ReceiveData` используют в цикле обработки сообщений:
+Обычно функции `ReceiveData` и `ParseData` используют в цикле обработки сообщений:
 
 ```FreeBASIC
+Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
+Dim intResult As ResultType = Any
+
 Do
 	If objClient.ReceiveData(@strReceiveBuffer) <> ResultType.None Then
 		Exit Do
@@ -322,12 +324,32 @@ Do
 	intResult = objClient.ParseData(@strReceiveBuffer)
 Loop While intResult = ResultType.None
 
+Client.CloseIrc()
+```
+
 
 #### Возвращаемое значение
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 Если в течение десяти минут данные с сервера не будут получены, то функция завершается ошибкой. Это помогает завершать зависшие соединения.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### ParseData
@@ -349,7 +371,6 @@ Declare Function ParseData(ByVal strData As WString Ptr)As ResultType
 Функция разбирает строку по шаблону и вызывает следующие события:
 
 * ServerErrorEvent
-* DisconnectEvent
 * ServerMessageEvent
 * NoticeEvent
 * ChannelMessageEvent
@@ -366,6 +387,8 @@ Declare Function ParseData(ByVal strData As WString Ptr)As ResultType
 * ModeEvent
 * CtcpMessageEvent
 * CtcpNoticeEvent
+
+Функция самостоятельно обрабатывает сообщения `PING` и отправляет на него сообщения `PONG`. Событие `PingEvent` вызывается только тогда, когда установлен обработчик события. В таком случае обработкой сообщений `PING` должен заниматься клиент самостоятельно, вызывая функцию `SendPong`.
 
 
 #### Возвращаемое значение
