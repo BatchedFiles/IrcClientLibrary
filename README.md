@@ -259,6 +259,8 @@ ByVal Visible As Boolean)As ResultType
 
 `strNoticeText` — текст уведомления.
 
+Уведомление аналогично сообщению с тем отличием, что на него не следует отвечать автоматически.
+
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
@@ -336,17 +338,74 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
-	' Отправка сообщения PONG
-	Declare Function SendPong(ByVal strServer As WString Ptr)As ResultType
-	' Отправка сообщения PING
-	Declare Function SendPing(ByVal strServer As WString Ptr)As ResultType
-	
-	' Отправка CTCP-запроса
-	Declare Function SendCtcpMessage(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal Param As WString Ptr)As ResultType
+
+### SendRawMessage
+
+Отправляет «сырые» данные, то есть как они есть.
+
+Параметры:
+
+`strRawText` — данные.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### SendPong
+
+Отправляет сообщение PONG.
+
+Параметры:
+
+`strServer` — сервер, к которому подключён клиент.
+
+Сервер отправляет сообщения PING для проверки подключённости пользователя. Если пользователь вовремя не ответит сообщением PONG, то сервер закроет соединение. Обычно отправка PONG вручную не требуется, так как это берёт на себя библиотека.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### SendPing
+
+Отправляет сообщение PING.
+
+Параметры:
+
+`strServer` — сервер, к которому подключён клиент.
+
+На сообщение PING сервер ответит сообщением PONG.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+### SendCtcpMessage
+
+Отправляет CTCP‐сообщение.
+
+Параметры:
+
+`strChannel` — получатель сообщения, канал или пользователь.
+
+`iType` — тип сообщения.
+
+`Param` — параметр.
+
+CTCP‐сообщения —
+
+`iType` Может принимать одно из следующих значений:
+
+Ping — проверка активности пользователя, при этом в `Param` необходимо отправить какое‐нибудь число.
+
+Time — запрашивается локальное время пользователя. `Param` игнорируется.
+
+UserInfo — запрашивается информация о пользователе. `Param` игнорируется.
+
+Version — запрашивается версия клиента. `Param` игнорируется.
+
+Action — отправляемое сообщение показывается так, будто оно сказано от первого лица. `Param` — текст сообщения.
+
+В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
 	' Отправка CTCP-ответа
 	Declare Function SendCtcpNotice(ByVal strChannel As WString Ptr, ByVal iType As CtcpMessageType, ByVal NoticeText As WString Ptr)As ResultType
-	' Отправка сырого сообщения
-	Declare Function SendRawMessage(ByVal strRawText As WString Ptr)As ResultType
 	
 	
 ## События
