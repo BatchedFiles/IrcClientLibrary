@@ -1,4 +1,4 @@
-# IrcClientLibrary
+﻿# IrcClientLibrary
 
 Клиентская библиотека для работы с протоколом IRC. Инкапсулирует в себе низкоуровневую работу с сокетами, приём и отправку сообщений, автоматические ответы на пинг от сервера. Пригодна для создания ботов, клиентских программ и для работы с IRC‐протоколом.
 
@@ -58,9 +58,16 @@ Client.ServerMessageEvent = @ServerMessage
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
 ' Открываем соединение с сервером
-' Параметры:
-' Сервер, порт, локальный адрес, локальный порт, пароль на сервер, ник, юзер‐строка, описание, режим видимости
-If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, ServerPassword, Nick, UserString, Description, False) = ResultType.None Then
+If Client.OpenIrc( _
+		Server, _
+		Port, _
+		LocalAddress, _
+		LocalPort, _
+		ServerPassword, _
+		Nick, _
+		UserString, _
+		Description, _
+		False) = ResultType.None Then
 	' Всё идёт по плану
 	
 	Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
@@ -79,7 +86,11 @@ If Client.OpenIrc(Server, Port, LocalAddress, LocalPort, ServerPassword, Nick, U
 End If
 
 ' Любое серверное сообщение
-Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
+Function ServerMessage( _
+		ByVal AdvData As Any Ptr, _
+		ByVal ServerCode As WString Ptr, _
+		ByVal MessageText As WString Ptr)As ResultType
+	
 	If *ServerCode = RPL_WELCOME Then
 		' Сервер приветствует нас
 		' Присоединиться к каналу
@@ -91,11 +102,15 @@ Function ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr
 End Function
 
 ' Личное сообщение
-Function IrcPrivateMessage(ByVal AdvData As Any Ptr, ByVal User As WString Ptr, ByVal MessageText As WString Ptr)As ResultType
+Function IrcPrivateMessage( _
+		ByVal AdvData As Any Ptr, _
+		ByVal User As WString Ptr, _
+		ByVal MessageText As WString Ptr)As ResultType
+	
 	' Команда от админа
 	If *User = AdminNick Then
 		Dim intMemory As UInteger = Fre()
-		objClient.SendIrcMessage(AdminNick, "Количество свободной памяти в байтах = " & WStr(intMemory))
+		objClient.SendIrcMessage(AdminNick, "Свободная память = " & WStr(intMemory))
 	End If
 	Return ResultType.None
 End Function
@@ -143,7 +158,7 @@ End Enum
 
 ### MaxBytesCount
 
-Максимальное количество байт, которое можно отправить на сервер в одной строке. 
+Максимальное количество байт, которое можно отправить на сервер в одной строке.
 
 ```FreeBASIC
 Const MaxBytesCount As Integer = 512
@@ -165,11 +180,17 @@ Dim ExtendedData As Any Ptr
 
 ### CodePage
 
-Кодировка данных, используемая для преобразования байт в строку. Например: CP_UTF8, 1251. По умолчанию используется CP_UTF8.
+Номер кодировочной таблицы, используемой для преобразования байт в строку.
 
 ```FreeBASIC
 Dim CodePage As Integer
 ```
+
+В протоколе IRC не укзано, каким оразом строки будут конвертироваться в байты. Это возлагается на самого клиента. Клиент для преобразования строк использует кодировочную таблицу. Например: 65001 (UTF-8), 1251 (кодировка Windows для кириллицы), 866 (кодировка DOS для кириллицы), 20866 (KOI8-R), 21866 (KOI8-U).
+
+По умолчанию используется кодировка UTF-8.
+
+Нельзя использовать кодировки, в символах которых присутствуют нули. Например, 1200 (UTF-16), 1201 (UTF-16 BE). Это запрещено правилами протокола.
 
 
 ## Методы
@@ -229,17 +250,17 @@ As ResultType
 
 #### Описание
 
-Если указан пароль на сервер, то функция создаёт строку подключения вида:
+Длина строки пароля на сервер равна нулю, то функция создаёт строку подключения вида:
 
 ```
-PASS password
 NICK Paul
 USER paul 8 * :Paul Mutton
 ```
 
-Иначе строку подключения вида:
+Если пароль не пустой, то строка подключения вида:
 
 ```
+PASS password
 NICK Paul
 USER paul 8 * :Paul Mutton
 ```
@@ -259,7 +280,9 @@ USER paul 8 * :Paul Mutton
 Получает данные от сервера.
 
 ```FreeBASIC
-Declare Function ReceiveData(ByVal strReturnedString As WString Ptr)As ResultType
+Declare Function ReceiveData( _
+	ByVal strReturnedString As WString Ptr) _
+As ResultType
 ```
 
 
@@ -267,7 +290,7 @@ Declare Function ReceiveData(ByVal strReturnedString As WString Ptr)As ResultTyp
 
 <dl>
 <dt>strReturnedString</dt>
-<dd>Указатель на строку, куда будут записаны данные сервера. Размер буфера под строку должен быть не менее `MaxBytesCount` символов + 1 под нулевой, иначе возможно переполнение буфера.</dd>
+<dd>Указатель на строку, в которую будут записаны данные сервера. Размер буфера под строку должен быть не менее `MaxBytesCount` символов + 1 под нулевой, иначе возможно переполнение буфера.</dd>
 </dl>
 
 
@@ -310,7 +333,9 @@ Client.CloseIrc()
 Разбирает пришедшие с сервера данные и вызывает обработчики событий.
 
 ```FreeBASIC
-Declare Function ParseData(ByVal strData As WString Ptr)As ResultType
+Declare Function ParseData( _
+	ByVal strData As WString Ptr) _
+As ResultType
 ```
 
 
@@ -381,7 +406,10 @@ Declare Sub CloseIrc()
 Отправляет сообщение на канал или пользователю.
 
 ```FreeBASIC
-Declare Function SendIrcMessage(ByVal strChannel As WString Ptr, ByVal strMessageText As WString Ptr)As ResultType
+Declare Function SendIrcMessage( _
+	ByVal strChannel As WString Ptr, _
+	ByVal strMessageText As WString Ptr) _
+As ResultType
 ```
 
 
@@ -501,28 +529,43 @@ Topic :strTopic
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### QuitFromServer
 
-Отправляет на сервер сообщение о выходе с сервера, что вынуждает сервер закрыть соединение.
+Отправляет на сервер сообщение о выходе, что вынуждает сервер закрыть соединение.
 
-Параметры:
+```FreeBASIC
+Declare Function QuitFromServer( _
+	ByVal strMessageText As WString Ptr) _
+As ResultType
+```
 
-`strMessageText` — текст прощального сообщения. Необязателен.
+
+#### Параметры
+
+<dl>
+<dt>strMessageText</dt>
+<dd>Текст прощального сообщения. Необязателен.</dd>
+</dl>
+
+
+#### Описание
+
+Если длина прощального сообщения равна нулю, то функция отправляет на сервер строку:
+
+```
+QUIT
+```
+
+Иначе функция отправляет строку
+
+```
+QUIT :Прощальное сообщение
+```
+
+Это вынуждает сервер закрыть соединение с клиентом.
+
+
+#### Возвращаемое значение
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
