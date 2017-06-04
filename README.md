@@ -41,10 +41,12 @@ Const Nick = "LeoFitz"
 Const UserString = "LeoFitz"
 ' Описание бота
 Const Description = "IRC bot written in FreeBASIC"
+' Канал, на котором будет сидеть бот
+Const Channel = "#freebasic-ru"
+
 ' IP‐адрес и порт, с которых будут идти соединения с сервером
 Const LocalAddress = "0.0.0.0"
 Const LocalPort = "0"
-Const Channel = "##freebasic-ru"
 ```
 
 Основной код:
@@ -86,7 +88,7 @@ If Client.OpenIrc( _
 End If
 
 ' Любое серверное сообщение
-Function ServerMessage( _
+Sub ServerMessage( _
 		ByVal AdvData As Any Ptr, _
 		ByVal ServerCode As WString Ptr, _
 		ByVal MessageText As WString Ptr)As ResultType
@@ -98,11 +100,10 @@ Function ServerMessage( _
 		' Отправить сообщение на канал
 		Client.SendIrcMessage(Channel, "Всем привет!")
 	End If
-	Return ResultType.None
-End Function
+End Sub
 
 ' Личное сообщение
-Function IrcPrivateMessage( _
+Sub IrcPrivateMessage( _
 		ByVal AdvData As Any Ptr, _
 		ByVal User As WString Ptr, _
 		ByVal MessageText As WString Ptr)As ResultType
@@ -112,8 +113,7 @@ Function IrcPrivateMessage( _
 		Dim intMemory As UInteger = Fre()
 		objClient.SendIrcMessage(AdminNick, "Свободная память = " & WStr(intMemory))
 	End If
-	Return ResultType.None
-End Function
+End Sub
 ```
 
 
@@ -188,9 +188,9 @@ Dim CodePage As Integer
 
 В протоколе IRC не укзано, каким оразом строки будут конвертироваться в байты. Это возлагается на самого клиента. Клиент для преобразования строк использует кодировочную таблицу. Например: 65001 (UTF-8), 1251 (кодировка Windows для кириллицы), 866 (кодировка DOS для кириллицы), 20866 (KOI8-R), 21866 (KOI8-U).
 
-По умолчанию используется кодировка UTF-8.
+По умолчанию используется кодировка UTF-8, так как она позволяет представить всё множество символов юникода. Однако в ней длина одного символа может занимать от одного до шести байтов.
 
-Нельзя использовать кодировки, в символах которых присутствуют нули. Например, 1200 (UTF-16), 1201 (UTF-16 BE). Это запрещено правилами протокола.
+Нельзя использовать кодировки, в символах которых присутствуют нули. Например: 1200 (UTF-16), 1201 (UTF-16 BE). Нули в данном случае будут интерпретироваться как символ с кодом 0, что в большинстве случаев ознакает конец последовательности символов. IRC‐протокол накладывает ограничение на использование нулевого символа.
 
 
 ## Методы
@@ -222,7 +222,7 @@ As ResultType
 <dd>Имя сервера для соединения: доменное имя или IP‐адрес, например, chat.freenode.net.</dd>
 
 <dt>Port</dt>
-<dd>Строка, содержащая номер порта для соединения, например, 6667.</dd>
+<dd>Строка, содержащая номер порта для соединения. Стандартный порт для IRC сети — 6667. Однако также доступны некоторые другие порты, на каждом из которых используется определённая кодировка для преобразования байт в строку. Необходимо смотреть в описании сервера на его официальном сайте.</dd>
 
 <dt>LocalServer</dt>
 <dd>Локальный IP‐адрес, к которому будет привязан клиент и с которого будет идти соединение. Можно указать конкретный IP‐адрес сетевой карты, чтобы соединение шло через неё, или оставить пустой строкой, в таком случае операционная система сама выберет сетевую карту для подключения.</dd>
@@ -240,10 +240,10 @@ As ResultType
 <dd>Строка‐идентификатор пользователя, обычно имя программы‐клиента, которым пользуются, не может содержать пробелов, не меняется в течение всего соединения.</dd>
 
 <dt>Description</dt>
-<dd>Строка‐описание пользователя, может содержать пробелы и спецсимволы, не меняется в течение всего соединения.</dd>
+<dd>Описание пользователя, любые дополнительные данные, которые могут быть полезны, например, настоящие имя и фамилия пользователя, может содержать пробелы и спецсимволы, не меняется в течение всего соединения.</dd>
 
 <dt>Visible</dt>
-<dd>Флаг видимости для других пользователей.</dd>
+<dd>Флаг видимости для других пользователей. Если установлен в True, то пользователя можно будет найти командой WHO. Обычно все серверы устанавливают его в False.</dd>
 
 </dl>
 
@@ -445,7 +445,10 @@ PRIVMSG target :Message Text
 Отправляет уведомление пользователю.
 
 ```FreeBASIC
-Declare Function SendNotice(ByVal strChannel As WString Ptr, ByVal strNoticeText As WString Ptr)As ResultType
+Declare Function SendNotice( _
+	ByVal strChannel As WString Ptr, _
+	ByVal strNoticeText As WString Ptr) _
+As ResultType
 ```
 
 #### Параметры
@@ -482,7 +485,10 @@ NOTICE target :Notice Text
 Устанавливает, удаляет или получает тему канала.
 
 ```FreeBASIC
-Declare Function ChangeTopic(ByVal strChannel As WString Ptr, ByVal strTopic As WString Ptr)As ResultType
+Declare Function ChangeTopic( _
+	ByVal strChannel As WString Ptr, _
+	ByVal strTopic As WString Ptr) _
+As ResultType
 ```
 
 
@@ -574,9 +580,20 @@ QUIT :Прощальное сообщение
 
 Меняет ник пользователя.
 
-Параметры:
+```FreeBASIC
+Declare Function ChangeNick(ByVal Nick As WString Ptr)As ResultType
+```
 
-`Nick` — новый ник.
+
+#### Параметры
+
+<dl>
+<dt>Nick</dt>
+<dd>новый ник.</dd>
+</dl>
+
+
+#### Возвращаемое значение
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
