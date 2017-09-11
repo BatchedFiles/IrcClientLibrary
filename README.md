@@ -18,40 +18,11 @@ fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendM
 
 Этот пример показывает как легко создать соединение с сервером IRC, зайти на канал и отправить сообщение.
 
-Подключаем заголовочные файлы:
-
 ```FreeBASIC
 #include once "Irc.bi"
 #include once "IrcEvents.bi"
 #include once "IrcReplies.bi"
-```
 
-Определяем параметры подключения к серверу:
-
-```FreeBASIC
-' Имя сервера
-Const Server = "chat.freenode.net"
-' Порт
-Const Port = "6667"
-' Пароль на соединение с сервером, в данном случае пуст
-Const ServerPassword = ""
-' Ник бота
-Const Nick = "LeoFitz"
-' Юзер‐строка, необходима для идентификации
-Const UserString = "LeoFitz"
-' Описание бота
-Const Description = "IRC bot written in FreeBASIC"
-' Канал, на котором будет сидеть бот
-Const Channel = "#freebasic-ru"
-
-' IP‐адрес и порт, с которых будут идти соединения с сервером
-Const LocalAddress = "0.0.0.0"
-Const LocalPort = "0"
-```
-
-Основной код:
-
-```FreeBASIC
 ' Создаём объект для работы с IRC
 Dim Shared Client As IrcClient
 
@@ -60,54 +31,26 @@ Client.ServerMessageEvent = @ServerMessage
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
 ' Открываем соединение с сервером
-If Client.OpenIrc( _
-		Server, _
-		Port, _
-		LocalAddress, _
-		LocalPort, _
-		ServerPassword, _
-		Nick, _
-		UserString, _
-		Description, _
-		False) = ResultType.None Then
-	' Всё идёт по плану
-	
-	Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
-	Dim intResult As ResultType = Any
-	
-	' Бесконечный цикл получения данных от сервера до тех пор, пока не будет ошибок
-	Do
-		If objClient.ReceiveData(@strReceiveBuffer) <> ResultType.None Then
-			Exit Do
-		End If
-		intResult = objClient.ParseData(@strReceiveBuffer)
-	Loop While intResult = ResultType.None
-	
-	' Закрыть
-	Client.CloseIrc()
+If Client.OpenIrc("chat.freenode.net", "LeoFitz") Then
+	Client.Run()
 End If
 
+' Закрыть
+Client.CloseIrc()
+
 ' Любое серверное сообщение
-Sub ServerMessage( _
-		ByVal AdvData As Any Ptr, _
-		ByVal ServerCode As WString Ptr, _
-		ByVal MessageText As WString Ptr)As ResultType
-	
+Sub ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)
 	If *ServerCode = RPL_WELCOME Then
 		' Сервер приветствует нас
 		' Присоединиться к каналу
-		Client.JoinChannel(Channel)
+		Client.JoinChannel("#freebasic-ru")
 		' Отправить сообщение на канал
 		Client.SendIrcMessage(Channel, "Всем привет!")
 	End If
 End Sub
 
 ' Личное сообщение
-Sub IrcPrivateMessage( _
-		ByVal AdvData As Any Ptr, _
-		ByVal User As WString Ptr, _
-		ByVal MessageText As WString Ptr)As ResultType
-	
+Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, ByVal User As WString Ptr, ByVal MessageText As WString Ptr)
 	' Команда от админа
 	If *User = AdminNick Then
 		Dim intMemory As UInteger = Fre()
