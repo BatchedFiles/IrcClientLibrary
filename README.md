@@ -1,6 +1,6 @@
 ﻿# IrcClientLibrary
 
-Клиентская библиотека для работы с протоколом IRC. Инкапсулирует в себе грязную низкоуровневую работу с сокетами, приём и отправку сообщений, автоматические ответы на пинг от сервера. Пригодна для создания ботов, клиентских программ и для работы с IRC‐протоколом.
+Клиентская библиотека для работы с протоколом IRC. Инкапсулирует низкоуровневую работу с сокетами, приём и отправку сообщений, автоматические ответы на пинг от сервера. Пригодна для создания ботов, клиентских программ и мессенджеров для работы с IRC‐протоколом.
 
 Библиотека использует синхронную событийную модель функций обратного вызова. Каждое пришедшее сообщение от сервера разбирается по шаблонам, вызывая соответствующие обработчики событий.
 
@@ -10,7 +10,7 @@
 ## Компиляция
 
 ```Batch
-fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas
+fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas AppendingBuffer.bas
 ```
 
 
@@ -23,76 +23,23 @@ fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendM
 #include once "IrcEvents.bi"
 #include once "IrcReplies.bi"
 
-' Создаём объект для работы с IRC
 Dim Shared Client As IrcClient
 
-' Установливаем обработчики событий
-Client.ServerMessageEvent = @ServerMessage
+Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, _
+		ByVal User As WString Ptr, _
+		ByVal MessageText As WString Ptr)
+	
+	Client.SendIrcMessage(UserName, "Yes, me too.")
+End Sub
+
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
-' Открываем соединение с сервером
 If Client.OpenIrc("chat.freenode.net", "LeoFitz") Then
+	Client.JoinChannel("#freebasic-ru")
 	Client.Run()
 End If
 
-' Закрыть
 Client.CloseIrc()
-
-' Любое серверное сообщение
-Sub ServerMessage(ByVal AdvData As Any Ptr, ByVal ServerCode As WString Ptr, ByVal MessageText As WString Ptr)
-	If *ServerCode = RPL_WELCOME Then
-		' Сервер приветствует нас
-		' Присоединиться к каналу
-		Client.JoinChannel("#freebasic-ru")
-		' Отправить сообщение на канал
-		Client.SendIrcMessage(Channel, "Всем привет!")
-	End If
-End Sub
-
-' Личное сообщение
-Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, ByVal User As WString Ptr, ByVal MessageText As WString Ptr)
-	' Команда от админа
-	If *User = AdminNick Then
-		Dim intMemory As UInteger = Fre()
-		objClient.SendIrcMessage(AdminNick, "Свободная память = " & WStr(intMemory))
-	End If
-End Sub
-```
-
-
-## Перечисления
-
-
-### ResultType
-
-Почти все методы объекта `IrcClient` возвращают значение типа `ResultType`. Если результат не равен `ResultType.None`, то рекомендуется закрыть соединение функцией `CloseIrc`.
-
-```FreeBASIC
-Enum ResultType
-	' Ошибки нет
-	None
-	' Ошибка инициализации библиотеки сокетов
-	WSAError
-	' Ошибка сети
-	SocketError
-	' Ошибка IRC‐сервера
-	ServerError
-End Enum
-```
-
-
-### CtcpMessageType
-
-Перечисление `CtcpMessageType` необходимо в CTCP‐сообщениях.
-
-```FreeBASIC
-Enum CtcpMessageType
-	Ping
-	Time
-	UserInfo
-	Version
-	Action
-End Enum
 ```
 
 
@@ -108,6 +55,15 @@ Const MaxBytesCount As Integer = 512
 ```
 
 Необходимо помнить, что длина строки измеряется в символах, а размер одного символа не всегда равен одному байту. Для кодировки UTF-8 размер одного символа может быть от одного до шести байт.
+
+
+### DefaultServerPort
+
+Стандартный порт по умолчанию для соединения с сервером.
+
+```FreeBASIC
+Const DefaultServerPort As Integer = 6667
+```
 
 
 ## Поля
@@ -134,6 +90,24 @@ Dim CodePage As Integer
 По умолчанию используется кодировка UTF-8, так как она позволяет представить всё множество символов юникода. Однако в ней длина одного символа может занимать от одного до шести байтов.
 
 Нельзя использовать кодировки, в символах которых присутствуют нули. Например: 1200 (UTF-16), 1201 (UTF-16 BE). Нули в данном случае будут интерпретироваться как символ с кодом 0, что в большинстве случаев ознакает конец последовательности символов. IRC‐протокол накладывает ограничение на использование нулевого символа.
+
+
+### ClientVersion
+
+Версия используемой программы. Если установлена, то будет отправлена серверу на CTCP‐запрос `VERSION`.
+
+```FreeBASIC
+Dim ClientVersion As WString Ptr
+```
+
+
+### ClientUserInfo
+
+Информация о пользователе. Если установлена, то будет отправлена серверу на CTCP‐запрос `USERINFO`.
+
+```FreeBASIC
+Dim ClientUserInfo As WString Ptr
+```
 
 
 ## Методы
