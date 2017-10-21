@@ -24,14 +24,6 @@ fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendM
 #include once "IrcReplies.bi"
 
 Dim Shared Client As IrcClient
-
-Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, _
-		ByVal User As WString Ptr, _
-		ByVal MessageText As WString Ptr)
-	
-	Client.SendIrcMessage(UserName, "Yes, me too.")
-End Sub
-
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
 If Client.OpenIrc("chat.freenode.net", "LeoFitz") Then
@@ -40,6 +32,13 @@ If Client.OpenIrc("chat.freenode.net", "LeoFitz") Then
 End If
 
 Client.CloseIrc()
+
+Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, _
+		ByVal User As WString Ptr, _
+		ByVal MessageText As WString Ptr)
+	
+	Client.SendIrcMessage(UserName, "Yes, me too.")
+End Sub
 ```
 
 
@@ -187,87 +186,31 @@ USER paul 8 * :Paul Mutton
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 Если функция завершается ошибкой, то закрывать соединение не требуется.
 
 
-### ReceiveData
+### Run
 
-Получает данные от сервера.
+Запускает цикл обработки данных от сервера, разбирает их по шаблону и вызывает события.
 
 ```FreeBASIC
-Declare Function ReceiveData( _
-	ByVal strReturnedString As WString Ptr) _
-As ResultType
+Declare Sub Run()
 ```
 
 
 #### Параметры
 
-<dl>
-<dt>strReturnedString</dt>
-<dd>Указатель на строку, в которую будут записаны данные сервера. Размер буфера под строку должен быть не менее `MaxBytesCount` символов + 1 под нулевой, иначе возможно переполнение буфера.</dd>
-</dl>
-
-
-#### Описание
-
-Функция ищет во внутреннем накопительном буфере комбинацию байтов 13 и 10, соответствующую символам перевода строки и возврата каретки. Если такая комбинация найдена, то все байты до неё преобразуются в строку в соответсткии с текущей кодировкой, записываются в `strReturnedString` и удаляются из накопительного буфера.
-
-Если комбинация байтов 13 и 10 не найдена, то функция запрашивает `MaxBytesCount` байт с сервера за вычетом текущей длины накопительного буфера.
-
-Если накопительный буфер заполнен, а комбинация байтов 13 и 10 не найдена, то весь буфер преобразовывается в строку, записывается `strReturnedString` и очищается.
-
-Функция вызывает событие `ReceivedRawMessageEvent`.
-
-Обычно функции `ReceiveData` и `ParseData` используют в цикле обработки сообщений:
-
-```FreeBASIC
-Dim strReceiveBuffer As WString * (IrcClient.MaxBytesCount + 1) = Any
-Dim intResult As ResultType = Any
-
-Do
-	If objClient.ReceiveData(@strReceiveBuffer) <> ResultType.None Then
-		Exit Do
-	End If
-	intResult = objClient.ParseData(@strReceiveBuffer)
-Loop While intResult = ResultType.None
-
-Client.CloseIrc()
-```
-
-
-#### Возвращаемое значение
-
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
-
-Если в течение десяти минут данные с сервера не будут получены, то функция завершается ошибкой. Это помогает завершать зависшие соединения.
-
-
-### ParseData
-
-Разбирает пришедшие с сервера данные и вызывает обработчики событий.
-
-```FreeBASIC
-Declare Function ParseData( _
-	ByVal strData As WString Ptr) _
-As ResultType
-```
-
-
-#### Параметры
-
-<dl>
-<dt>strReceiveBuffer</dt>
-<dd>Указатель на строку данных, полученную от сервера.</dd>
-</dl>
+Функция не имеет параметров.
 
 
 #### Описание
 
 Функция разбирает строку по шаблону и вызывает следующие события:
 
+* SendedRawMessageEvent
+* ReceivedRawMessageEvent
 * ServerErrorEvent
 * ServerMessageEvent
 * NoticeEvent
@@ -283,15 +226,23 @@ As ResultType
 * PingEvent
 * PongEvent
 * ModeEvent
-* CtcpMessageEvent
-* CtcpNoticeEvent
+* CtcpTimeRequestEvent
+* CtcpUserInfoRequestEvent
+* CtcpVersionRequestEvent
+* CtcpActionEvent
+* CtcpPingResponseEvent
+* CtcpTimeResponseEvent
+* CtcpUserInfoResponseEvent
+* CtcpVersionResponse
 
-Функция самостоятельно обрабатывает сообщения `PING` и отправляет на него сообщения `PONG`. Если установлен обработчик события `PingEvent`, то обработкой сообщения `PING` должен клиент заниматься самостоятельно, вызывая функцию `SendPong`.
+Функция самостоятельно обрабатывает сообщения `PING` и отправляет на него сообщения `PONG`. Если установлен обработчик события `PingEvent`, то обработкой сообщения `PING` клиент должен заниматься самостоятельно, вызывая функцию `SendPong`.
+
+Цикл обработки сообщений прерывается когда получение данных от сервера завершается ошибкой.
 
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+Функция не возваращает значений.
 
 
 ### CloseIrc
