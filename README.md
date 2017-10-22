@@ -120,14 +120,14 @@ Dim ClientUserInfo As WString Ptr
 Declare Function OpenIrc( _
 	ByVal Server As WString Ptr, _
 	ByVal Port As WString Ptr, _
-	ByVal LocalServer As WString Ptr, _
+	ByVal LocalAddress As WString Ptr, _
 	ByVal LocalPort As WString Ptr, _
 	ByVal Password As WString Ptr, _
 	ByVal Nick As WString Ptr, _
 	ByVal User As WString Ptr, _
 	ByVal Description As WString Ptr, _
-	ByVal Visible As Boolean) _
-As ResultType
+	ByVal Visible As Boolean _
+) As Boolean
 ```
 
 
@@ -140,7 +140,7 @@ As ResultType
 <dt>Port</dt>
 <dd>Строка, содержащая номер порта для соединения. Стандартный порт для IRC сети — 6667. Однако также доступны некоторые другие порты, на каждом из которых используется определённая кодировка для преобразования байт в строку. Необходимо смотреть в описании сервера на его официальном сайте.</dd>
 
-<dt>LocalServer</dt>
+<dt>LocalAddress</dt>
 <dd>Локальный IP‐адрес, к которому будет привязан клиент и с которого будет идти соединение. Можно указать конкретный IP‐адрес сетевой карты, чтобы соединение шло через неё, или оставить пустой строкой, в таком случае операционная система сама выберет сетевую карту для подключения.</dd>
 
 <dt>LocalPort</dt>
@@ -275,26 +275,26 @@ Declare Sub CloseIrc()
 
 ```FreeBASIC
 Declare Function SendIrcMessage( _
-	ByVal strChannel As WString Ptr, _
-	ByVal strMessageText As WString Ptr) _
-As ResultType
+	ByVal Channel As WString Ptr, _
+	ByVal MessageText As WString Ptr _
+) As Boolean
 ```
 
 
 #### Параметры
 
 <dl>
-<dt>strChannel</dt>
+<dt>Channel</dt>
 <dd>Имя пользователя или канал. Если указан канал, то сообщение получат все пользователи, сидящие на канале. Если указано имя пользователя, то сообщение получит только этот пользователь.</dd>
 
-<dt>strMessageText</dt>
+<dt>MessageText</dt>
 <dd>Текст сообщения</dd>
 </dl>
 
 
 #### Описание
 
-Функция в создаёт строку вида:
+Функция создаёт строку вида:
 
 ```
 PRIVMSG target :Message Text
@@ -305,7 +305,7 @@ PRIVMSG target :Message Text
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
 ### SendNotice
@@ -314,18 +314,18 @@ PRIVMSG target :Message Text
 
 ```FreeBASIC
 Declare Function SendNotice( _
-	ByVal strChannel As WString Ptr, _
-	ByVal strNoticeText As WString Ptr) _
-As ResultType
+	ByVal Channel As WString Ptr, _
+	ByVal NoticeText As WString Ptr _
+) As Boolean
 ```
 
 #### Параметры
 
 <dl>
-<dt>strChannel</dt>
+<dt>Channel</dt>
 <dd>Имя пользователя, получателя уведомления.</dd>
 
-<dt>strNoticeText</dt>
+<dt>NoticeText</dt>
 <dd>Текст уведомления.</dd>
 </dl>
 
@@ -345,7 +345,7 @@ NOTICE target :Notice Text
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
 ### ChangeTopic
@@ -354,26 +354,26 @@ NOTICE target :Notice Text
 
 ```FreeBASIC
 Declare Function ChangeTopic( _
-	ByVal strChannel As WString Ptr, _
-	ByVal strTopic As WString Ptr) _
-As ResultType
+	ByVal Channel As WString Ptr, _
+	ByVal TopicText As WString Ptr _
+) As Boolean
 ```
 
 
 #### Параметры
 
 <dl>
-<dt>strChannel</dt>
+<dt>Channel</dt>
 <dd>Канал для установки или запроса темы.</dd>
 
-<dt>strNoticeText</dt>
+<dt>TopicText</dt>
 <dd>Текст темы.</dd>
 </dl>
 
 
 #### Описание
 
-Если `strTopic` — нулевой указатель `NULL`, то на сервер отправляется строка:
+Если `TopicText` — нулевой указатель `NULL`, то на сервер отправляется строка:
 
 ```
 Topic
@@ -381,7 +381,7 @@ Topic
 
 В ответ сервер отправит тему канала. Сервер ответит кодами `RPL_TOPIC`, если тема существует, или `RPL_NOTOPIC`, если тема не установлена.
 
-Если `strTopic` — указатель на пустую строку, на сервер отправляется строка:
+Если `TopicText` — указатель на пустую строку, на сервер отправляется строка:
 
 ```
 Topic :
@@ -392,15 +392,15 @@ Topic :
 Иначе на сервер отправляется строка:
 
 ```
-Topic :strTopic
+Topic :TopicText
 ```
 
-В этом случае сервер установит тему канала, указанную в `strTopic`.
+В этом случае сервер установит тему канала, указанную в `TopicText`.
 
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
 ### QuitFromServer
@@ -409,16 +409,16 @@ Topic :strTopic
 
 ```FreeBASIC
 Declare Function QuitFromServer( _
-	ByVal strMessageText As WString Ptr) _
-As ResultType
+	ByVal MessageText As WString Ptr _
+) As Boolean
 ```
 
 
 #### Параметры
 
 <dl>
-<dt>strMessageText</dt>
-<dd>Текст прощального сообщения. Необязателен.</dd>
+<dt>MessageText</dt>
+<dd>Текст прощального сообщения.</dd>
 </dl>
 
 
@@ -441,7 +441,7 @@ QUIT :Прощальное сообщение
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
 ### ChangeNick
@@ -449,7 +449,9 @@ QUIT :Прощальное сообщение
 Меняет ник пользователя.
 
 ```FreeBASIC
-Declare Function ChangeNick(ByVal Nick As WString Ptr)As ResultType
+Declare Function ChangeNick( _
+	ByVal Nick As WString Ptr _
+) As Boolean
 ```
 
 
@@ -472,23 +474,7 @@ NICK новый ник
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
 ### JoinChannel
@@ -496,15 +482,29 @@ NICK новый ник
 Присоединяет пользователя к каналу или каналам.
 
 ```
-Declare Function JoinChannel(ByVal strChannel As WString Ptr)As ResultType
+Declare Function JoinChannel( _
+	ByVal Channel As WString Ptr _
+) As Boolean
 ```
 
 
-Параметры:
+#### Параметры
 
-`strChannel` — список каналов, разделённый запятыми без пробелов. Если на канале установлен пароль, то через пробел указываются пароли для входа, разделённые запятыми без пробелов.
+<dl>
+<dt>Channel</dt>
+<dd>Список каналов, разделённый запятыми без пробелов. Если на канале установлен пароль, то через пробел указываются пароли для входа, разделённые запятыми без пробелов.</dd>
+</dl>
 
-Пример:
+
+#### Описание
+
+Функция отправляет на сервер строку:
+
+```
+JOIN channel
+```
+
+#### Пример
 
 ```FreeBASIC
 ' Присоединение к каналам
@@ -517,7 +517,23 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 
 #### Возвращаемое значение
 
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### PartChannel
@@ -533,6 +549,22 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### SendRawMessage
 
 Отправляет «сырые» данные, то есть как они есть.
@@ -542,6 +574,22 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 `strRawText` — данные.
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### SendPong
@@ -557,6 +605,22 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### SendPing
 
 Отправляет сообщение PING.
@@ -568,6 +632,22 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 На сообщение PING сервер ответит сообщением PONG.
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### SendCtcpMessage
@@ -602,6 +682,22 @@ CTCP‐сообщения — это
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### SendCtcpNotice
 
 Отправляет ответ на CTCP запрос. Эту функцию обычно вызывают в событии `f`.
@@ -629,5 +725,21 @@ CTCP‐сообщения — это
 
 В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
 	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
 ## События
