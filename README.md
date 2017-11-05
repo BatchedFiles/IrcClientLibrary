@@ -233,7 +233,7 @@ Declare Sub Run()
 * CtcpPingResponseEvent
 * CtcpTimeResponseEvent
 * CtcpUserInfoResponseEvent
-* CtcpVersionResponse
+* CtcpVersionResponseEvent
 
 Функция самостоятельно обрабатывает сообщения `PING` и отправляет на него сообщения `PONG`. Если установлен обработчик события `PingEvent`, то обработкой сообщения `PING` клиент должен заниматься самостоятельно, вызывая функцию `SendPong`.
 
