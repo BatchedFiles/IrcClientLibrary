@@ -559,6 +559,44 @@ PART channel: прощальное сообщение
 В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
 
 
+### SendCtcpAction
+
+Отправляет CTCP‐сообщение ACTION, отображаемое клиентами так, будто пользователь сказал текст от третьего лица.
+
+```
+Declare Function SendCtcpAction( _
+	ByVal UserName As WString Ptr, _
+	ByVal MessageText As WString Ptr _
+) As Boolean
+```
+
+
+#### Параметры
+
+<dl>
+<dt>UserName</dt>
+<dd>Имя пользователя или канал, кому адресовано сообщение.</dd>
+
+<dt>MessageText</dt>
+<dd>Текст сообщения.</dd>
+</dl>
+
+#### Описание
+
+Сообщение ACTION позволяет сказать текст от третьего лица. В большинстве клиентов ACTION отправляется через команду /me.
+
+Функция отправляет на сервер строку:
+
+```
+PRIVMSG UserName: ACTION MessageText
+```
+
+
+#### Возвращаемое значение
+
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
+
+
 ### SendCtcpPingRequest
 
 Отправляет CTCP‐запрос PING.
@@ -589,7 +627,109 @@ Declare Function SendCtcpPingRequest( _
 PRIVMSG UserName: PING TimeValue
 ```
 
-Это вынуждает сервер отсоединить пользователя от канала.
+Запрос CTCP PING позволит определить задержку сообщений, которая существует непосредственно между двумя клиентами. CTCP PING работает путем отправки целочисленного аргумента (метки времени) целевому клиенту. Клиент может ответить, предоставляя точно такой же числовой параметр. Вычисляется разница между исходной меткой времени и текущей меткой времени, при этом результат отображается пользователю, который инициировал CTCP PING. Чаще всего используется временная метка, использующая миллисекунды из‐за большинства пользователей с широкополосным подключением к интернету с задержкой менее 1 секунды.
+
+
+#### Возвращаемое значение
+
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
+
+
+### SendCtcpTimeRequest
+
+Отправляет CTCP‐запрос TIME, чтобы узнать локальное время клиента.
+
+```
+Declare Function SendCtcpTimeRequest( _
+	ByVal UserName As WString Ptr _
+) As Boolean
+```
+
+
+#### Параметры
+
+<dl>
+<dt>UserName</dt>
+<dd>Имя пользователя, у которого запрашивают локальное время.</dd>
+</dl>
+
+#### Описание
+
+Функция отправляет на сервер строку:
+
+```
+PRIVMSG UserName: TIME
+```
+
+Запрос CTCP TIME позволяет получить локальное время клиента.
+
+
+#### Возвращаемое значение
+
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
+
+
+### SendCtcpUserInfoRequest
+
+Отправляет CTCP‐запрос USERINFO, чтобы узнать информацию о пользователе.
+
+```
+Declare Function SendCtcpUserInfoRequest( _
+	ByVal UserName As WString Ptr _
+) As Boolean
+```
+
+
+#### Параметры
+
+<dl>
+<dt>UserName</dt>
+<dd>Имя пользователя, у которого запрашивают информацию.</dd>
+</dl>
+
+#### Описание
+
+Функция отправляет на сервер строку:
+
+```
+PRIVMSG UserName: USERINFO
+```
+
+Запрос CTCP USERINFO позволяет получить информацию о пользователе.
+
+
+#### Возвращаемое значение
+
+В случае успеха функция возвращает `True`, в случае ошибки возвращает `False`.
+
+
+### SendCtcpVersionRequest
+
+Отправляет CTCP‐запрос VERSION, чтобы узнать информацию о версии программы‐клиента пользователя.
+
+```
+Declare Function SendCtcpVersionRequest( _
+	ByVal UserName As WString Ptr _
+) As Boolean
+```
+
+
+#### Параметры
+
+<dl>
+<dt>UserName</dt>
+<dd>Имя пользователя, у которого запрашивают информацию.</dd>
+</dl>
+
+#### Описание
+
+Функция отправляет на сервер строку:
+
+```
+PRIVMSG UserName: VERSION
+```
+
+Запрос CTCP VERSION позволяет получить версию программы‐клиента пользователя.
 
 
 #### Возвращаемое значение
@@ -600,60 +740,16 @@ PRIVMSG UserName: PING TimeValue
 
 
 
-### SendCtcpNotice
-
-Отправляет ответ на CTCP запрос. Эту функцию обычно вызывают в событии `f`.
-
-Параметры:
-
-`strChannel` — получатель сообщения: имя канала канала или пользователя.
-
-`iType` — тип сообщения.
-
-`NoticeText` — текст ответа.
-
-
-#### iType
-
-Может принимать одно из следующих значений:
-
-`Ping` — ответ на PING пользователя. В `NoticeText` необходимо число, которое пришло.
-
-`Time` — запрашивается локальное время пользователя. В `NoticeText` необходимо отправить локальное время пользователя.
-
-`UserInfo` — запрашивается информация о пользователе. В `NoticeText` необходимо указать данные пользователя.
-
-`Version` — запрашивается версия клиента. В `NoticeText` необходимо указать версию программы.
-
-В случае успеха функция возвращает значение `ResultType.None`, в случае ошибки возвращает код ошибки.
-	
 
 
 
 
 
 
-Declare Function SendCtcpPingRequest( _
-	ByVal UserName As WString Ptr, _
-	ByVal TimeValue As WString Ptr _
-) As Boolean
 
-Declare Function SendCtcpTimeRequest( _
-	ByVal UserName As WString Ptr _
-) As Boolean
 
-Declare Function SendCtcpUserInfoRequest( _
-	ByVal UserName As WString Ptr _
-) As Boolean
 
-Declare Function SendCtcpVersionRequest( _
-	ByVal UserName As WString Ptr _
-) As Boolean
 
-Declare Function SendCtcpAction( _
-	ByVal UserName As WString Ptr, _
-	ByVal MessageText As WString Ptr _
-) As Boolean
 
 Declare Function SendCtcpPingResponse( _
 	ByVal UserName As WString Ptr, _
