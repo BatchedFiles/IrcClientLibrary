@@ -1,0 +1,29 @@
+﻿#include "Resources.rh"
+
+LANGUAGE 0,0
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION VER_FILEVERSION
+PRODUCTVERSION VER_PRODUCTVERSION
+FILEOS VOS_NT
+FILETYPE VFT_APP
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "FFFF04B0"
+		BEGIN
+			VALUE "FileVersion", VER_FILEVERSION_STR
+			VALUE "ProductVersion", VER_PRODUCTVERSION_STR
+			VALUE "CompanyName", "Пакетные файлы\0"
+			VALUE "FileDescription", "Библиотека для работы с протоколом IRC\0"
+			VALUE "InternalName", "IrcClientLibrary\0"
+			VALUE "LegalCopyright", "(c) Пакетные файлы. Общественное достояние.\0"
+			VALUE "OriginalFilename", "BatchedFilesIrcClient64.dll\0"
+			VALUE "ProductName", "IrcLibrary\0"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0xFFFF, 0x04B0
+	END
+END
