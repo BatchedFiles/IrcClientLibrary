@@ -4,13 +4,13 @@
 
 Библиотека использует синхронную событийную модель функций обратного вызова. Каждое пришедшее сообщение от сервера разбирается по шаблонам, вызывая соответствующие обработчики событий.
 
-Функции библиотеки инкапсулированы в класс `IrcClient`.
+Функции библиотеки работают со структурой `IrcClient`.
 
 
 ## Компиляция
 
 ```Batch
-fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas AppendingBuffer.bas
+fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas AppendingBuffer.bas
 ```
 
 
@@ -19,25 +19,25 @@ fbc -lib Irc.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendM
 Этот пример показывает как легко создать соединение с сервером IRC, зайти на канал и отправить сообщение.
 
 ```FreeBASIC
-#include once "Irc.bi"
-#include once "IrcEvents.bi"
-#include once "IrcReplies.bi"
+#include "IrcClient.bi"
+#include "IrcEvents.bi"
 
 Dim Shared Client As IrcClient
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
-If Client.OpenIrc("chat.freenode.net", "LeoFitz") Then
-	Client.JoinChannel("#freebasic-ru")
-	Client.Run()
+If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
+	JoinChannel(@Client, "#s2ch")
+	RunIrcClient(@Client)
+	CloseIrcClient(@Client)
 End If
 
-Client.CloseIrc()
-
-Sub IrcPrivateMessage(ByVal AdvData As Any Ptr, _
-		ByVal User As WString Ptr, _
-		ByVal MessageText As WString Ptr)
+Sub IrcPrivateMessage( _
+		ByVal ClientData As Any Ptr, _
+		ByVal UserName As WString Ptr, _
+		ByVal MessageText As WString Ptr _
+	)
 	
-	Client.SendIrcMessage(UserName, "Yes, me too.")
+	SendIrcMessage(@Client, UserName, "Yes, me too.")
 End Sub
 ```
 
@@ -68,12 +68,12 @@ Const DefaultServerPort As Integer = 6667
 ## Поля
 
 
-### ExtendedData
+### AdvancedClientData
 
 Дополнительное поле для хранения указателя на любые данные. Этот указатель будет отправляться в каждом событии, генерируемом классом `IrcClient`.
 
 ```FreeBASIC
-Dim ExtendedData As Any Ptr
+Dim AdvancedClientData As Any Ptr
 ```
 
 ### CodePage
@@ -109,15 +109,31 @@ Dim ClientUserInfo As WString Ptr
 ```
 
 
-## Методы
+## Функции
 
 
 ### OpenIrc
 
-Открывает соединение с сервером.
+Открывает соединение с сервером. Перегружена.
 
 ```FreeBASIC
 Declare Function OpenIrc( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal Server As WString Ptr, _
+	ByVal Nick As WString Ptr _
+) As Boolean
+
+Declare Function OpenIrc( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal Server As WString Ptr, _
+	ByVal Port As WString Ptr, _
+	ByVal Nick As WString Ptr, _
+	ByVal User As WString Ptr, _
+	ByVal Description As WString Ptr _
+) As Boolean
+
+Declare Function OpenIrc( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Server As WString Ptr, _
 	ByVal Port As WString Ptr, _
 	ByVal LocalAddress As WString Ptr, _
@@ -134,6 +150,9 @@ Declare Function OpenIrc( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`. Структура должна быть инициализирована нулями.</dd>
+
 <dt>Server</dt>
 <dd>Имя сервера для соединения: доменное имя или IP‐адрес, например, chat.freenode.net.</dd>
 
@@ -159,7 +178,7 @@ Declare Function OpenIrc( _
 <dd>Описание пользователя, любые дополнительные данные, которые могут быть полезны, например, настоящие имя и фамилия пользователя, может содержать пробелы и спецсимволы, не меняется в течение всего соединения.</dd>
 
 <dt>Visible</dt>
-<dd>Флаг видимости для других пользователей. Если установлен в `True`, то пользователя можно будет найти командой WHO. Обычно все серверы устанавливают его в `False`.</dd>
+<dd>Флаг видимости для других пользователей. Если установлен в `True`, то пользователя можно будет найти командой `WHO`. Обычно все серверы устанавливают его в `False`.</dd>
 
 </dl>
 
@@ -191,19 +210,23 @@ USER paul 8 * :Paul Mutton
 Если функция завершается ошибкой, то закрывать соединение не требуется.
 
 
-### Run
+### RunIrcClient
 
 Запускает цикл обработки данных от сервера, разбирает их по шаблону и вызывает события.
 
 ```FreeBASIC
-Declare Sub Run()
+Declare Sub RunIrcClient( _
+	ByVal pIrcClient As IrcClient Ptr _
+)
 ```
 
 
 #### Параметры
 
-Функция не имеет параметров.
-
+<dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+</dl>
 
 #### Описание
 
@@ -245,18 +268,23 @@ Declare Sub Run()
 Функция не возваращает значений.
 
 
-### CloseIrc
+### CloseIrcClient
 
 Закрывает соединение с сервером.
 
 ```FreeBASIC
-Declare Sub CloseIrc()
+Declare Sub CloseIrcClient( _
+	ByVal pIrcClient As IrcClient Ptr _
+)
 ```
 
 
 #### Параметры
 
-Функция не имеет параметров.
+<dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+</dl>
 
 
 #### Описание
@@ -275,6 +303,7 @@ Declare Sub CloseIrc()
 
 ```FreeBASIC
 Declare Function SendIrcMessage( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As WString Ptr, _
 	ByVal MessageText As WString Ptr _
 ) As Boolean
@@ -284,6 +313,9 @@ Declare Function SendIrcMessage( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Channel</dt>
 <dd>Имя пользователя или канал. Если указан канал, то сообщение получат все пользователи, сидящие на канале. Если указано имя пользователя, то сообщение получит только этот пользователь.</dd>
 
@@ -314,6 +346,7 @@ PRIVMSG target :Message Text
 
 ```FreeBASIC
 Declare Function SendNotice( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As WString Ptr, _
 	ByVal NoticeText As WString Ptr _
 ) As Boolean
@@ -322,6 +355,9 @@ Declare Function SendNotice( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Channel</dt>
 <dd>Имя пользователя, получателя уведомления.</dd>
 
@@ -354,6 +390,7 @@ NOTICE target :Notice Text
 
 ```FreeBASIC
 Declare Function ChangeTopic( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As WString Ptr, _
 	ByVal TopicText As WString Ptr _
 ) As Boolean
@@ -363,6 +400,9 @@ Declare Function ChangeTopic( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Channel</dt>
 <dd>Канал для установки или запроса темы.</dd>
 
@@ -405,10 +445,15 @@ Topic :TopicText
 
 ### QuitFromServer
 
-Отправляет на сервер сообщение о выходе, что вынуждает сервер закрыть соединение.
+Отправляет на сервер сообщение о выходе, что вынуждает сервер закрыть соединение. Перегружена.
 
 ```FreeBASIC
-Declare Function QuitFromServer( _
+Declare Function QuitFromServer Overload( _
+	ByVal pIrcClient As IrcClient Ptr _
+) As Boolean
+
+Declare Function QuitFromServer Overload( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal MessageText As WString Ptr _
 ) As Boolean
 ```
@@ -417,6 +462,9 @@ Declare Function QuitFromServer( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>MessageText</dt>
 <dd>Текст прощального сообщения.</dd>
 </dl>
@@ -450,6 +498,7 @@ QUIT :Прощальное сообщение
 
 ```FreeBASIC
 Declare Function ChangeNick( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Nick As WString Ptr _
 ) As Boolean
 ```
@@ -458,6 +507,9 @@ Declare Function ChangeNick( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Nick</dt>
 <dd>Новый ник.</dd>
 </dl>
@@ -483,6 +535,7 @@ NICK новый ник
 
 ```
 Declare Function JoinChannel( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As WString Ptr _
 ) As Boolean
 ```
@@ -491,6 +544,9 @@ Declare Function JoinChannel( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Channel</dt>
 <dd>Список каналов, разделённый запятыми без пробелов. Если на канале установлен пароль, то через пробел указываются пароли для входа, разделённые запятыми без пробелов.</dd>
 </dl>
@@ -522,10 +578,16 @@ Client.JoinChannel("#freebasic,#freebasic-ru password1")
 
 ### PartChannel
 
-Отключает от канала.
+Отключает от канала. Перегружена.
 
 ```
-Declare Function PartChannel( _
+Declare Function PartChannel Overload( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal Channel As WString Ptr _
+) As Boolean
+
+Declare Function PartChannel Overload( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As WString Ptr, _
 	ByVal MessageText As WString Ptr _
 ) As Boolean
@@ -535,6 +597,9 @@ Declare Function PartChannel( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>Channel</dt>
 <dd>Канал для выхода.</dd>
 
@@ -565,6 +630,7 @@ PART channel: прощальное сообщение
 
 ```
 Declare Function SendCtcpAction( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal MessageText As WString Ptr _
 ) As Boolean
@@ -574,6 +640,9 @@ Declare Function SendCtcpAction( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>UserName</dt>
 <dd>Имя пользователя или канал, кому адресовано сообщение.</dd>
 
@@ -603,6 +672,7 @@ PRIVMSG UserName: ACTION MessageText
 
 ```
 Declare Function SendCtcpPingRequest( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal TimeValue As WString Ptr _
 ) As Boolean
@@ -612,6 +682,9 @@ Declare Function SendCtcpPingRequest( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>UserName</dt>
 <dd>Имя пользователя, у которого запрашивают PING.</dd>
 
@@ -641,6 +714,7 @@ PRIVMSG UserName: PING TimeValue
 
 ```
 Declare Function SendCtcpTimeRequest( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr _
 ) As Boolean
 ```
@@ -649,6 +723,9 @@ Declare Function SendCtcpTimeRequest( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>UserName</dt>
 <dd>Имя пользователя, у которого запрашивают локальное время.</dd>
 </dl>
@@ -675,6 +752,7 @@ PRIVMSG UserName: TIME
 
 ```
 Declare Function SendCtcpUserInfoRequest( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr _
 ) As Boolean
 ```
@@ -683,6 +761,9 @@ Declare Function SendCtcpUserInfoRequest( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>UserName</dt>
 <dd>Имя пользователя, у которого запрашивают информацию.</dd>
 </dl>
@@ -709,6 +790,7 @@ PRIVMSG UserName: USERINFO
 
 ```
 Declare Function SendCtcpVersionRequest( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr _
 ) As Boolean
 ```
@@ -717,6 +799,9 @@ Declare Function SendCtcpVersionRequest( _
 #### Параметры
 
 <dl>
+<dt>pIrcClient</dt>
+<dd>Указатель на структуру `IrcClient`.</dd>
+
 <dt>UserName</dt>
 <dd>Имя пользователя, у которого запрашивают информацию.</dd>
 </dl>
@@ -752,23 +837,42 @@ PRIVMSG UserName: VERSION
 
 
 Declare Function SendCtcpPingResponse( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal TimeValue As WString Ptr _
 ) As Boolean
 
 Declare Function SendCtcpTimeResponse( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal TimeValue As WString Ptr _
 ) As Boolean
 
 Declare Function SendCtcpUserInfoResponse( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal UserInfo As WString Ptr _
 ) As Boolean
 
 Declare Function SendCtcpVersionResponse( _
+	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal UserName As WString Ptr, _
 	ByVal Version As WString Ptr _
+) As Boolean
+
+Declare Function SendPing( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal Server As WString Ptr _
+) As Boolean
+
+Declare Function SendPong( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal Server As WString Ptr _
+) As Boolean
+
+Declare Function SendRawMessage( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal RawText As WString Ptr _
 ) As Boolean
 
 
