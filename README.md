@@ -25,11 +25,18 @@ fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas
 Dim Shared Client As IrcClient
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
-If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
-	JoinChannel(@Client, "#s2ch")
+Dim objWsaData As WSAData = Any
+If WSAStartup(MAKEWORD(2, 2), @objWsaData) <> 0 Then
+	End(1)
+End If
+
+If OpenIrcClient(@Client, "chat.freenode.net", "LeoFitz") Then
+	JoinChannel(@Client, "#freebasic-ru")
 	RunIrcClient(@Client)
 	CloseIrcClient(@Client)
 End If
+
+WSACleanup()
 
 Sub IrcPrivateMessage( _
 		ByVal ClientData As Any Ptr, _
