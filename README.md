@@ -16,30 +16,28 @@ fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas
 
 ## Быстрый старт
 
-Этот пример показывает как легко создать соединение с сервером IRC, зайти на канал и отправить сообщение.
+Этот пример показывает как создать соединение с сервером IRC, зайти на канал и отправить сообщение.
 
 ```FreeBASIC
 #include "IrcClient.bi"
 #include "IrcEvents.bi"
 
+Const TenMinutesInMilliSeconds As DWORD = 10 * 60 * 1000
+
 Dim Shared Client As IrcClient
 Client.PrivateMessageEvent = @IrcPrivateMessage
 
-Dim objWsaData As WSAData = Any
-If WSAStartup(MAKEWORD(2, 2), @objWsaData) <> 0 Then
-	End(1)
-End If
-
-If OpenIrcClient(@Client, "chat.freenode.net", "LeoFitz") Then
+If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
 	JoinChannel(@Client, "#freebasic-ru")
-	RunIrcClient(@Client)
-	CloseIrcClient(@Client)
+	Do While Client.ClientConnected
+		If SleepEx(TenMinutesInMilliSeconds, True) = 0 Then
+			CloseIrcClient(@Client)
+		End If
+	Loop
 End If
-
-WSACleanup()
 
 Sub IrcPrivateMessage( _
-		ByVal ClientData As Any Ptr, _
+		ByVal AdvData As Any Ptr, _
 		ByVal UserName As WString Ptr, _
 		ByVal MessageText As WString Ptr _
 	)
