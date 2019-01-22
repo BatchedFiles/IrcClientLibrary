@@ -16,25 +16,14 @@ fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas
 
 ## Быстрый старт
 
-Этот пример показывает как создать соединение с сервером IRC, зайти на канал и отправить сообщение.
+Этот пример консольного приложения показывает как создать соединение с сервером IRC, зайти на канал и отправить сообщение в приват.
 
 ```FreeBASIC
 #include "IrcClient.bi"
-#include "IrcEvents.bi"
 
 Const TenMinutesInMilliSeconds As DWORD = 10 * 60 * 1000
 
 Dim Shared Client As IrcClient
-Client.PrivateMessageEvent = @IrcPrivateMessage
-
-If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
-	JoinChannel(@Client, "#freebasic-ru")
-	Do While Client.ClientConnected
-		If SleepEx(TenMinutesInMilliSeconds, True) = 0 Then
-			CloseIrcClient(@Client)
-		End If
-	Loop
-End If
 
 Sub IrcPrivateMessage( _
 		ByVal AdvData As Any Ptr, _
@@ -42,9 +31,27 @@ Sub IrcPrivateMessage( _
 		ByVal MessageText As WString Ptr _
 	)
 	
-	SendIrcMessage(@Client, UserName, "Yes, me too.")
+	SendIrcMessage(@Client, UserName, "Hello chat!")
+	
 End Sub
+
+Client.lpfnPrivateMessageEvent = @IrcPrivateMessage
+
+If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
+	
+	JoinChannel(@Client, "#freebasic-ru")
+	
+	Do While WaitForSingleObjectEx(Client.hEvent, TenMinutesInMilliSeconds, True) = WAIT_IO_COMPLETION
+	
+	Loop
+	
+End If
+
 ```
+
+Функция `WaitForSingleObjectEx` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи. 
+
+В оконных приложениях вместо функции `WaitForSingleObjectEx` необходимо использовать `MsgWaitForMultipleObjectsEx`.
 
 
 ## Константы
@@ -58,7 +65,7 @@ End Sub
 Const MaxBytesCount As Integer = 512
 ```
 
-Необходимо помнить, что длина строки измеряется в символах, а размер одного символа не всегда равен одному байту. Для кодировки UTF-8 размер одного символа может быть от одного до шести байт.
+Длина строки измеряется в символах, а размер одного символа не всегда равен одному байту. Для кодировки UTF-8 размер одного символа может быть от одного до шести байт.
 
 
 ### DefaultServerPort
@@ -91,9 +98,9 @@ Dim CodePage As Integer
 
 В стандарте IRC‐протокола не определено, каким образом строки будут преобразовываться в байты, эта задача возлагается на самого клиента. Клиент для преобразования строк использует кодировочную таблицу. Например: 65001 (UTF-8), 1251 (кодировка Windows для кириллицы), 866 (кодировка DOS для кириллицы), 20866 (KOI8-R), 21866 (KOI8-U).
 
-Библиотека по умолчанию использует кодировку UTF-8, так как она позволяет представить всё множество символов юникода. Однако в ней длина одного символа может занимать от одного до шести байтов.
+Библиотека использует кодировку UTF-8 по умолчанию (65001).
 
-Нельзя использовать кодировки, в символах которых присутствуют нули. Например: 1200 (UTF-16), 1201 (UTF-16 BE). Нули в данном случае будут интерпретироваться как символ с кодом 0, что в большинстве случаев означает конец последовательности символов. IRC‐протокол накладывает ограничение на использование нулевого символа.
+Нельзя использовать кодировки, в символах которых присутствуют нули. Например: UTF-16 (1200), UTF-16 BE (1201). Нули в данном случае будут интерпретироваться как символ с кодом 0, что в большинстве случаев означает конец последовательности символов. IRC‐протокол накладывает ограничение на использование нулевого символа.
 
 
 ### ClientVersion
