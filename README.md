@@ -21,8 +21,6 @@ fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas
 ```FreeBASIC
 #include "IrcClient.bi"
 
-Const TenMinutesInMilliSeconds As DWORD = 10 * 60 * 1000
-
 Dim Shared Client As IrcClient
 
 Sub IrcPrivateMessage( _
@@ -41,15 +39,13 @@ If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
 	
 	JoinChannel(@Client, "#freebasic-ru")
 	
-	Do While WaitForSingleObjectEx(Client.hEvent, TenMinutesInMilliSeconds, True) = WAIT_IO_COMPLETION
-	
-	Loop
+	IrcClientStartReceiveDataLoop(@Client)
 	
 End If
 
 ```
 
-Функция `WaitForSingleObjectEx` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи. 
+Функция `WaitForSingleObjectEx` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи.
 
 В оконных приложениях вместо функции `WaitForSingleObjectEx` необходимо использовать `MsgWaitForMultipleObjectsEx`.
 
