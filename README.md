@@ -10,7 +10,7 @@
 ## Компиляция
 
 ```Batch
-fbc -lib IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas AppendingBuffer.bas
+make.cmd
 ```
 
 

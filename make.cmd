@@ -3,7 +3,7 @@ set CompilerDirectory=%ProgramFiles%\FreeBASIC
 set MainFile=
 set Classes=
 set Forms=
-set Modules=IrcClient.bas SendData.bas ReceiveData.bas ParseData.bas GetIrcData.bas SendMessages.bas Network.bas AppendingBuffer.bas
+set Modules=Modules\IrcClient.bas Modules\SendData.bas Modules\ReceiveData.bas Modules\ParseData.bas Modules\GetIrcData.bas Modules\SendMessages.bas Modules\Network.bas Modules\AppendingBuffer.bas
 set References=
 set Resources=
 
