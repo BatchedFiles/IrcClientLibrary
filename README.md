@@ -24,30 +24,42 @@ make.cmd
 Dim Shared Client As IrcClient
 
 Sub IrcPrivateMessage( _
-		ByVal AdvData As Any Ptr, _
-		ByVal UserName As WString Ptr, _
+		ByVal ClientData As Any Ptr, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As WString Ptr _
 	)
-	
-	SendIrcMessage(@Client, UserName, "Hello chat!")
-	
+	SendIrcMessage(@Client, pIrcPrefix->Nick, "Да, я тоже.")
+End Sub
+
+Sub ReceivedRawMessage( _
+		ByVal ClientData As Any Ptr, _
+		ByVal MessageText As WString Ptr _
+	)
+	Print *MessageText
 End Sub
 
 Client.lpfnPrivateMessageEvent = @IrcPrivateMessage
+Client.lpfnReceivedRawMessageEvent = @ReceivedRawMessage
+Client.lpfnSendedRawMessageEvent = @ReceivedRawMessage
 
-If OpenIrc(@Client, "chat.freenode.net", "LeoFitz") Then
-	
-	JoinChannel(@Client, "#freebasic-ru")
-	
-	IrcClientStartReceiveDataLoop(@Client)
-	
+Dim hr As HRESULT = IrcClientStartup(@Client)
+If FAILED(hr) Then
+	Print HEX(hr)
+	End(1)
 End If
 
+If OpenIrcClient(@Client, "chat.freenode.net", "LeoFitz") Then
+	JoinChannel(@Client, "#freebasic-ru")
+	IrcClientStartReceiveDataLoop(@Client)
+	CloseIrcClient(@Client)
+End If
+
+IrcClientCleanup(@Client)
 ```
 
-Функция `WaitForSingleObjectEx` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи.
+Функция `IrcClientStartReceiveDataLoop` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи.
 
-В оконных приложениях вместо функции `WaitForSingleObjectEx` необходимо использовать `MsgWaitForMultipleObjectsEx`.
+В оконных приложениях вместо функции `IrcClientStartReceiveDataLoop` необходимо использовать `IrcClientMsgStartReceiveDataLoop`.
 
 
 ## Константы
