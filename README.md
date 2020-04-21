@@ -21,23 +21,23 @@ make.cmd
 ```FreeBASIC
 #include "IrcClient.bi"
 
-Dim Shared Client As IrcClient
-
 Sub IrcPrivateMessage( _
-		ByVal ClientData As Any Ptr, _
-		ByVal pIrcPrefix As IrcPrefix Ptr, _
-		ByVal MessageText As WString Ptr _
+		ByVal ClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal MessageText As LPWSTRING _
 	)
-	SendIrcMessage(@Client, pIrcPrefix->Nick, "Да, я тоже.")
+	IrcClientSendIrcMessage(CPtr(IrcClient Ptr, ClientData), pIrcPrefix->Nick, "Да, я тоже.")
 End Sub
 
 Sub ReceivedRawMessage( _
-		ByVal ClientData As Any Ptr, _
-		ByVal MessageText As WString Ptr _
+		ByVal ClientData As LPCLIENTDATA, _
+		ByVal MessageText As LPWSTRING _
 	)
 	Print *MessageText
 End Sub
 
+Dim Client As IrcClient
+Client.AdvancedClientData = @Client
 Client.lpfnPrivateMessageEvent = @IrcPrivateMessage
 Client.lpfnReceivedRawMessageEvent = @ReceivedRawMessage
 Client.lpfnSendedRawMessageEvent = @ReceivedRawMessage
@@ -48,10 +48,10 @@ If FAILED(hr) Then
 	End(1)
 End If
 
-If OpenIrcClient(@Client, "chat.freenode.net", "LeoFitz") Then
-	JoinChannel(@Client, "#freebasic-ru")
+If IrcClientOpenConnection(@Client, "chat.freenode.net", "LeoFitz") Then
+	IrcClientJoinChannel(@Client, "#freebasic-ru")
 	IrcClientStartReceiveDataLoop(@Client)
-	CloseIrcClient(@Client)
+	IrcClientCloseConnection(@Client)
 End If
 
 IrcClientCleanup(@Client)
