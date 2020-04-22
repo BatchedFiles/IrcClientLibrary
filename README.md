@@ -21,26 +21,26 @@ make.cmd
 ```FreeBASIC
 #include "IrcClient.bi"
 
-Sub IrcPrivateMessage( _
+Sub OnIrcPrivateMessage( _
 		ByVal ClientData As LPCLIENTDATA, _
 		ByVal pIrcPrefix As LPIRCPREFIX, _
-		ByVal MessageText As LPWSTRING _
+		ByVal MessageText As LPWSTR _
 	)
 	IrcClientSendIrcMessage(CPtr(IrcClient Ptr, ClientData), pIrcPrefix->Nick, "Да, я тоже.")
 End Sub
 
-Sub ReceivedRawMessage( _
+Sub OnRawMessage( _
 		ByVal ClientData As LPCLIENTDATA, _
-		ByVal MessageText As LPWSTRING _
+		ByVal MessageText As LPWSTR _
 	)
 	Print *MessageText
 End Sub
 
 Dim Client As IrcClient
 Client.AdvancedClientData = @Client
-Client.lpfnPrivateMessageEvent = @IrcPrivateMessage
-Client.lpfnReceivedRawMessageEvent = @ReceivedRawMessage
-Client.lpfnSendedRawMessageEvent = @ReceivedRawMessage
+Client.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+Client.lpfnReceivedRawMessageEvent = @OnRawMessage
+Client.lpfnSendedRawMessageEvent = @OnRawMessage
 
 Dim hr As HRESULT = IrcClientStartup(@Client)
 If FAILED(hr) Then
