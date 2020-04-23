@@ -18,7 +18,7 @@ set MinWarningLevel=-w all
 REM set UseThreadSafeRuntime=-mt
 
 REM set EnableShowIncludes=-showincludes
-set EnableVerbose=-v
+REM set EnableVerbose=-v
 REM set EnableRuntimeErrorChecking=-e
 REM set EnableFunctionProfiling=-profile
 
