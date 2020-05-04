@@ -3,7 +3,7 @@ set CompilerDirectory=%ProgramFiles%\FreeBASIC
 set MainFile=
 set Classes=
 set Forms=
-set Modules=Modules\AppendingBuffer.bas Modules\GetIrcData.bas Modules\IrcClient.bas Modules\IrcPrefixInternal.bas Modules\MakeConnectionString.bas Modules\Network.bas Modules\NetworkClient.bas Modules\ParseData.bas Modules\ReceiveData.bas Modules\SendData.bas Modules\SendMessages.bas Modules\ValueBSTR.bas
+set Modules=Modules\GetIrcData.bas Modules\IrcClient.bas Modules\IrcPrefixInternal.bas Modules\MakeConnectionString.bas Modules\Network.bas Modules\NetworkClient.bas Modules\ParseData.bas Modules\ReceiveData.bas Modules\SendData.bas Modules\SendMessages.bas Modules\ValueBSTR.bas
 set References=
 set Resources=
 
