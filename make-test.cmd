@@ -4,7 +4,7 @@ set MainFile=test\bot.bas
 set Classes=
 set Modules=
 set Resources=
-set OutputFile=test\bot.exe
+set OutputFile=bin\x64\bot.exe
 
 set IncludeFilesPath=-i Classes -i Interfaces -i Modules -i Headers
 set IncludeLibraries=-l BatchedFilesIrcClient
@@ -37,3 +37,12 @@ if "%3"=="withoutruntime" (
 set CompilerParameters=%GUIDS_WITHOUT_MINGW% %MaxErrorsCount% %UseThreadSafeRuntime% %IncludeLibraries% %IncludeFilesPath% %OptimizationLevel% %VectorizationLevel% %MinWarningLevel% %EnableFunctionProfiling% %EnableShowIncludes% %EnableVerbose% %EnableRuntimeErrorChecking%
 
 call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
+
+set MainFile=test\simplebot.bas
+set Classes=
+set Modules=
+set Resources=
+set OutputFile=bin\x64\simplebot.exe
+
+call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
+
