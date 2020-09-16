@@ -1,10 +1,10 @@
 set CompilerDirectory=%ProgramFiles%\FreeBASIC
 
-set MainFile=test\bot.bas
+set MainFile=test\simplebot.bas
 set Classes=
 set Modules=
 set Resources=
-set OutputFile=bin\x64\bot.exe
+set OutputFile=bin\x64\simplebot.exe
 
 set IncludeFilesPath=-i Classes -i Interfaces -i Modules -i Headers
 set IncludeLibraries=-l BatchedFilesIrcClient
@@ -38,11 +38,10 @@ set CompilerParameters=%GUIDS_WITHOUT_MINGW% %MaxErrorsCount% %UseThreadSafeRunt
 
 call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
 
-set MainFile=test\simplebot.bas
+set MainFile=test\bot.bas
 set Classes=
 set Modules=
 set Resources=
-set OutputFile=bin\x64\simplebot.exe
+set OutputFile=bin\x64\bot.exe
 
 call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
-
