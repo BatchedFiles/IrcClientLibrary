@@ -45,3 +45,11 @@ set Resources=
 set OutputFile=bot.exe
 
 call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
+
+set MainFile=test\gui.bas
+set Classes=
+set Modules=
+set Resources=
+set OutputFile=gui.exe
+
+call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
