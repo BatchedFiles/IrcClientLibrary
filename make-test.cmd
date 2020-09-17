@@ -4,7 +4,7 @@ set MainFile=test\simplebot.bas
 set Classes=
 set Modules=
 set Resources=
-set OutputFile=bin\x64\simplebot.exe
+set OutputFile=simplebot.exe
 
 set IncludeFilesPath=-i Classes -i Interfaces -i Modules -i Headers
 set IncludeLibraries=-l BatchedFilesIrcClient
@@ -42,6 +42,6 @@ set MainFile=test\bot.bas
 set Classes=
 set Modules=
 set Resources=
-set OutputFile=bin\x64\bot.exe
+set OutputFile=bot.exe
 
 call translator.cmd "%MainFile% %Classes% %Modules% %Resources%" "%ExeTypeKind%" "%OutputFile%" "%CompilerDirectory%" "%CompilerParameters%" %EnableDebug% noprofile %WithoutRuntime%
