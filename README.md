@@ -31,7 +31,7 @@ Sub OnIrcPrivateMessage( _
 	IrcClientSendPrivateMessage(@Client, pIrcPrefix->Nick, SysAllocString("Да, я тоже."))
 End Sub
 
-Client.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+Client.Events.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 
 IrcClientOpenConnectionSimple1(@Client, SysAllocString("chat.freenode.net"), SysAllocString("LeoFitz"))
 IrcClientJoinChannel(@Client, SysAllocString("#freebasic-ru"))
