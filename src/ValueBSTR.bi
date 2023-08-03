@@ -4,7 +4,11 @@
 #include "windows.bi"
 #include "win\ole2.bi"
 
+#ifndef __FB_64BIT__
 #define WStringPtrToValueBstrPtr(pWString) Cast(ValueBSTR Ptr, Cast(Byte Ptr, (pWString)) - SizeOf(UINT))
+#else
+#define WStringPtrToValueBstrPtr(pWString) Cast(ValueBSTR Ptr, Cast(Byte Ptr, (pWString)) - SizeOf(UINT) - SizeOf(DWORD))
+#endif
 
 'IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(CrLf)
 Const MAX_VALUEBSTR_BUFFER_LENGTH As Integer = 510
@@ -15,7 +19,9 @@ Type LPVALUEBSTR As _ValueBSTR Ptr
 
 Type _ValueBSTR
 	
-	' Dim PlaceHolder As UINT
+	#ifdef __FB_64BIT__
+		Padding As DWORD
+	#endif
 	Dim BytesCount As UINT
 	Dim WChars(0 To (MAX_VALUEBSTR_BUFFER_LENGTH + 1) - 1) As OLECHAR
 	

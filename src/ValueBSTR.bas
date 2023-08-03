@@ -2,7 +2,7 @@
 
 Constructor ValueBSTR()
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	BytesCount = 0
 	WChars(0) = 0
 	
@@ -10,7 +10,7 @@ End Constructor
 
 Constructor ValueBSTR(ByRef lhs As Const WString)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	Dim lhsLength As Integer = lstrlenW(lhs)
 	Dim Chars As Integer = min(MAX_VALUEBSTR_BUFFER_LENGTH, lhsLength)
 	
@@ -22,7 +22,7 @@ End Constructor
 
 Constructor ValueBSTR(ByRef lhs As Const WString, ByVal NewLength As Const Integer)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	Dim Chars As Integer = min(MAX_VALUEBSTR_BUFFER_LENGTH, NewLength)
 	
 	BytesCount = Chars * SizeOf(OLECHAR)
@@ -33,7 +33,7 @@ End Constructor
 
 Constructor ValueBSTR(ByRef lhs As Const ValueBSTR)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	BytesCount = lhs.BytesCount
 	CopyMemory(@WChars(0), @lhs.WChars(0), BytesCount + SizeOf(OLECHAR))
 	
@@ -41,7 +41,7 @@ End Constructor
 
 Constructor ValueBSTR(ByRef lhs As Const BSTR)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	Dim lhsLength As Integer = CInt(SysStringLen(lhs))
 	Dim Chars As Integer = min(MAX_VALUEBSTR_BUFFER_LENGTH, lhsLength)
 	
@@ -53,7 +53,7 @@ End Constructor
 
 Operator ValueBSTR.Let(ByRef lhs As Const WString)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	Dim lhsLength As Integer = lstrlenW(lhs)
 	Dim Chars As Integer = min(MAX_VALUEBSTR_BUFFER_LENGTH, lhsLength)
 	
@@ -65,7 +65,7 @@ End Operator
 
 Operator ValueBSTR.Let(ByRef lhs As Const ValueBSTR)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	BytesCount = lhs.BytesCount
 	CopyMemory(@WChars(0), @lhs.WChars(0), BytesCount + SizeOf(OLECHAR))
 	
@@ -73,7 +73,7 @@ End Operator
 
 Operator ValueBSTR.Let(ByRef lhs As Const BSTR)
 	
-	'PlaceHolder = 0
+	'Padding = 0
 	Dim lhsLength As Integer = CInt(SysStringLen(lhs))
 	Dim Chars As Integer = min(MAX_VALUEBSTR_BUFFER_LENGTH, lhsLength)
 	
