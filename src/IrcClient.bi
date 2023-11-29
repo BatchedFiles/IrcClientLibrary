@@ -67,73 +67,16 @@ Type OnCtcpTimeResponseEvent As Sub    (ByVal lpParameter As LPCLIENTDATA, ByVal
 Type OnCtcpUserInfoResponseEvent As Sub(ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As LPIRCPREFIX, ByVal ToUser As BSTR, ByVal UserInfo As BSTR)
 Type OnCtcpVersionResponseEvent As Sub (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As LPIRCPREFIX, ByVal ToUser As BSTR, ByVal Version As BSTR)
 
-Type _IrcEvents
-	Dim lpfnSendedRawMessageEvent As OnSendedRawMessageEvent
-	Dim lpfnReceivedRawMessageEvent As OnReceivedRawMessageEvent
-	Dim lpfnServerErrorEvent As OnServerErrorEvent
-	Dim lpfnNumericMessageEvent As OnNumericMessageEvent
-	Dim lpfnServerMessageEvent As OnServerMessageEvent
-	Dim lpfnNoticeEvent As OnNoticeEvent
-	Dim lpfnChannelNoticeEvent As OnChannelNoticeEvent
-	Dim lpfnChannelMessageEvent As OnChannelMessageEvent
-	Dim lpfnPrivateMessageEvent As OnPrivateMessageEvent
-	Dim lpfnUserJoinedEvent As OnUserJoinedEvent
-	Dim lpfnUserLeavedEvent As OnUserLeavedEvent
-	Dim lpfnNickChangedEvent As OnNickChangedEvent
-	Dim lpfnTopicEvent As OnTopicEvent
-	Dim lpfnQuitEvent As OnQuitEvent
-	Dim lpfnKickEvent As OnKickEvent
-	Dim lpfnInviteEvent As OnInviteEvent
-	Dim lpfnPingEvent As OnPingEvent
-	Dim lpfnPongEvent As OnPongEvent
-	Dim lpfnModeEvent As OnModeEvent
-	Dim lpfnCtcpPingRequestEvent As OnCtcpPingRequestEvent
-	Dim lpfnCtcpTimeRequestEvent As OnCtcpTimeRequestEvent
-	Dim lpfnCtcpUserInfoRequestEvent As OnCtcpUserInfoRequestEvent
-	Dim lpfnCtcpVersionRequestEvent As OnCtcpVersionRequestEvent
-	Dim lpfnCtcpActionEvent As OnCtcpActionEvent
-	Dim lpfnCtcpPingResponseEvent As OnCtcpPingResponseEvent
-	Dim lpfnCtcpTimeResponseEvent As OnCtcpTimeResponseEvent
-	Dim lpfnCtcpUserInfoResponseEvent As OnCtcpUserInfoResponseEvent
-	Dim lpfnCtcpVersionResponseEvent As OnCtcpVersionResponseEvent
-End Type
-
-Type IrcEvents As _IrcEvents
-
-Type LPIRCEVENTS As _IrcEvents Ptr
-
-Type _RawBuffer
-	Dim Length As Integer
-	' Без завершающего нулевого символа
-	Dim Buffer As ZString * IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
-End Type
-
-Type RawBuffer As _RawBuffer
-
-Type LPRAWBUFFER As _RawBuffer Ptr
-
-Type _IrcClient
-	Dim RecvOverlapped As WSAOVERLAPPED
-	Dim lpParameter As LPCLIENTDATA
-	Dim hEvent As HANDLE
-	Dim hHeap As HANDLE
-	Dim ClientSocket As SOCKET
-	Dim Events As IrcEvents
-	Dim CodePage As Integer
-	Dim ClientNick As ValueBSTR
-	Dim ClientVersion As ValueBSTR
-	Dim ClientUserInfo As ValueBSTR
-	Dim ReceiveBuffer As RawBuffer
-	Dim ErrorCode As HRESULT
-	Dim IsInitialized As Boolean
-End Type
-
 Type IrcClient As _IrcClient
 
 Type LPIRCCLIENT As _IrcClient Ptr
 
 #define IrcClientOpenConnectionSimple1(pIrcClient, Server, Nick) IrcClientOpenConnection((pIrcClient), (Server), IRCPROTOCOL_DEFAULTPORT, @DefaultLocalServer, DefaultLocalPort, NULL, (Nick), (Nick), IRCPROTOCOL_MODEFLAG_INVISIBLE, (Nick))
 #define IrcClientOpenConnectionSimple2(pIrcClient, Server, Port, Nick, User, RealName) IrcClientOpenConnection((pIrcClient), (Server), (Port), @DefaultLocalServer, DefaultLocalPort, NULL, (Nick), (User), IRCPROTOCOL_MODEFLAG_INVISIBLE, (RealName))
+
+Declare Function CreateIrcClient() As IrcClient Ptr
+
+Declare Sub DestroyIrcClient()
 
 Declare Function IrcClientStartup( _
 	ByVal pIrcClient As IrcClient Ptr _
