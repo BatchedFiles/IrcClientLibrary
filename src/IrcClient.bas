@@ -706,9 +706,6 @@ Sub ReceiveCompletionROUTINE( _
 					End If
 				End Scope
 				
-			' Else
-				''??????
-				' GetLastError()
 			End If
 		End Scope
 		
@@ -1994,7 +1991,6 @@ Function ProcessModeCommand( _
 	If CUInt(pIrcClient->Events.lpfnModeEvent) Then
 		' Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		' Dim wStartIrcParam3 As WString Ptr = SeparateWordBySpace(pwszStartIrcParam2)
-		' TODO ??????? MODE
 		' pIrcClient->Events.lpfnModeEvent(pIrcClient->lpParameter, pPrefix, pwszIrcParam1, pwszStartIrcParam2, wStartIrcParam3)
 	End If
 	
