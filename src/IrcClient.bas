@@ -690,7 +690,7 @@ Private Function ProcessPrivateMessageCommand( _
 			Select Case GetCtcpCommand(pwszMessageText)
 				
 				Case CtcpMessageKind.Ping
-					':Angel!wings@irc.org PRIVMSG Qubick :PING 1402355972
+					':Angel!wings@irc.org PRIVMSG Qubick :\001PING 1402355972\001
 					If pwszStartCtcpParam <> NULL Then
 						Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
 						pCtcpParam->Length = MessageTextLength - Len(PingStringWithSpace)
@@ -703,7 +703,7 @@ Private Function ProcessPrivateMessageCommand( _
 					End If
 					
 				Case CtcpMessageKind.Action
-					':Angel!wings@irc.org PRIVMSG Qubick :ACTION Any Text
+					':Angel!wings@irc.org PRIVMSG Qubick :\001ACTION Any Text\001
 					If pwszStartCtcpParam <> NULL Then
 						If CUInt(pIrcClient->pEvents->lpfnCtcpActionEvent) Then
 							
@@ -715,7 +715,7 @@ Private Function ProcessPrivateMessageCommand( _
 					End If
 					
 				Case CtcpMessageKind.UserInfo
-					':Angel!wings@irc.org PRIVMSG Qubick :USERINFO
+					':Angel!wings@irc.org PRIVMSG Qubick :\001USERINFO\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientUserInfo) <> 0 Then
 							IrcClientSendCtcpUserInfoResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientUserInfo)
@@ -725,7 +725,7 @@ Private Function ProcessPrivateMessageCommand( _
 					End If
 					
 				Case CtcpMessageKind.Time
-					':Angel!wings@irc.org PRIVMSG Qubick :TIME
+					':Angel!wings@irc.org PRIVMSG Qubick :\001TIME\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpTimeRequestEvent) = 0 Then
 						' Tue, 15 Nov 1994 12:45:26 GMT
 						Const DateFormatString = "ddd, dd MMM yyyy "
@@ -744,7 +744,7 @@ Private Function ProcessPrivateMessageCommand( _
 					End If
 					
 				Case CtcpMessageKind.Version
-					':Angel!wings@irc.org PRIVMSG Qubick :VERSION
+					':Angel!wings@irc.org PRIVMSG Qubick :\001VERSION\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpVersionRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientVersion) <> 0 Then
 							Return IrcClientSendCtcpVersionResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientVersion)
@@ -781,7 +781,7 @@ Private Function ProcessNoticeCommand( _
 		ByRef bstrIrcMessage As ValueBSTR _
 	)As HRESULT
 	':Angel!wings@irc.org NOTICE Wiz :Are you receiving this message ?
-	':Angel!wings@irc.org NOTICE Qubick :PING 1402355972
+	':Angel!wings@irc.org NOTICE Qubick :\001PING 1402355972\001
 	
 	Dim pwszMsgTarget As WString Ptr = pwszIrcParam1
 	Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
