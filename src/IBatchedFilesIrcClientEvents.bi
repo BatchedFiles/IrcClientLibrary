@@ -1,14 +1,11 @@
 #ifndef BATCHEDFILES_IRCCLIENT_IBATCHEDFILESIRCCLIENTEVENTS_BI
 #define BATCHEDFILES_IRCCLIENT_IBATCHEDFILESIRCCLIENTEVENTS_BI
 
-#ifndef unicode
-#define unicode
-#endif
-#include "windows.bi"
-#include "win\ole2.bi"
-#include "win\oaidl.bi"
-#include "win\olectl.bi"
-#include "win\wtypes.bi"
+#include once "windows.bi"
+#include once "win\ole2.bi"
+#include once "win\oaidl.bi"
+#include once "win\olectl.bi"
+#include once "win\wtypes.bi"
 
 Extern RID_IrcPrefix Alias "RID_IrcPrefix" As Const GUID
 

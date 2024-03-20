@@ -1,7 +1,8 @@
-#include "IrcClient.bi"
-#include "NetworkClient.bi"
-#include "SendData.bi"
-#include "ReceiveData.bi"
+#include once "IrcClient.bi"
+#include once "win\shlwapi.bi"
+#include once "win\winsock2.bi"
+#include once "win\ws2tcpip.bi"
+#include once "CharacterConstants.bi"
 
 Const TenMinutesInMilliSeconds As DWORD = 10 * 60 * 1000
 
@@ -53,42 +54,13 @@ Const QuitStringWithSpaceComma = "QUIT :"
 Const WhoStringWithSpace = "WHO "
 Const WhoIsStringWithSpace = "WHOIS "
 
-Const JoinStringWithSpaceLength As Integer = 5
-Const PartStringWithSpaceLength As Integer = 5
-Const QuitStringLength As Integer = 4
-Const QuitStringWithSpaceCommaLength As Integer = 6
-Const PrivateMessageWithSpaceLength As Integer = 8
-Const TopicStringWithSpaceLength As Integer = 6
-Const NoticeStringWithSpaceLength As Integer = 7
-Const PongStringWithSpaceLength As Integer = 5
-Const PingStringWithSpaceLength As Integer = 5
-Const PingStringLength As Integer = 4
-Const SpaceWithCommaStringLength As Integer = 2
-Const PassStringWithSpaceLength As Integer = 5
-Const NickStringWithSpaceLength As Integer = 5
-Const UserStringWithSpaceLength As Integer = 5
-Const WhoStringWithSpaceLength As Integer = 4
-Const WhoIsStringWithSpaceLength As Integer = 6
-Const DefaultBotNameSepVisibleLength As Integer = 6
-Const DefaultBotNameSepInvisibleLength As Integer = 6
-Const ActionStringWithSpaceLength As Integer = 7
-Const UserInfoStringLength As Integer = 8
-Const UserInfoStringWithSpaceLength As Integer = 9
-Const TimeStringLength As Integer = 4
-Const TimeStringWithSpaceLength As Integer = 5
-Const VersionStringLength As Integer = 7
-Const VersionStringWithSpaceLength As Integer = 8
-Const DccSendWithSpaceLength As Integer = 9
-
 Const NewLineString = !"\r\n"
-Const NewLineStringLength As Integer = 2
 
-'IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(CrLf)
-Const SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM As Integer = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 2
+Const SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(NewLineString)
 
-Const SendBuffersCount As DWORD = 2
+Const SendBuffersCount = 2
 
-Const CrLfALength As ULONG = 2
+Const CrLfALength = 2
 
 Enum IrcCommand
 	Ping
@@ -120,1303 +92,353 @@ Enum CtcpMessageKind
 	None
 End Enum
 
-Type _IrcEvents
-	lpfnSendedRawMessageEvent As OnSendedRawMessageEvent
-	lpfnReceivedRawMessageEvent As OnReceivedRawMessageEvent
-	lpfnServerErrorEvent As OnServerErrorEvent
-	lpfnNumericMessageEvent As OnNumericMessageEvent
-	lpfnServerMessageEvent As OnServerMessageEvent
-	lpfnNoticeEvent As OnNoticeEvent
-	lpfnChannelNoticeEvent As OnChannelNoticeEvent
-	lpfnChannelMessageEvent As OnChannelMessageEvent
-	lpfnPrivateMessageEvent As OnPrivateMessageEvent
-	lpfnUserJoinedEvent As OnUserJoinedEvent
-	lpfnUserLeavedEvent As OnUserLeavedEvent
-	lpfnNickChangedEvent As OnNickChangedEvent
-	lpfnTopicEvent As OnTopicEvent
-	lpfnQuitEvent As OnQuitEvent
-	lpfnKickEvent As OnKickEvent
-	lpfnInviteEvent As OnInviteEvent
-	lpfnPingEvent As OnPingEvent
-	lpfnPongEvent As OnPongEvent
-	lpfnModeEvent As OnModeEvent
-	lpfnCtcpPingRequestEvent As OnCtcpPingRequestEvent
-	lpfnCtcpTimeRequestEvent As OnCtcpTimeRequestEvent
-	lpfnCtcpUserInfoRequestEvent As OnCtcpUserInfoRequestEvent
-	lpfnCtcpVersionRequestEvent As OnCtcpVersionRequestEvent
-	lpfnCtcpActionEvent As OnCtcpActionEvent
-	lpfnCtcpPingResponseEvent As OnCtcpPingResponseEvent
-	lpfnCtcpTimeResponseEvent As OnCtcpTimeResponseEvent
-	lpfnCtcpUserInfoResponseEvent As OnCtcpUserInfoResponseEvent
-	lpfnCtcpVersionResponseEvent As OnCtcpVersionResponseEvent
+#ifndef __FB_64BIT__
+#define WStringPtrToValueBstrPtr(pWString) Cast(ValueBSTR Ptr, Cast(Byte Ptr, (pWString)) - SizeOf(UINT))
+#else
+#define WStringPtrToValueBstrPtr(pWString) Cast(ValueBSTR Ptr, Cast(Byte Ptr, (pWString)) - SizeOf(UINT) - SizeOf(DWORD))
+#endif
+
+'IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(CrLf)
+Const VALUEBSTR_BUFFER_CAPACITY As Integer = 510
+
+Type ValueBSTR
+	
+	#ifdef __FB_64BIT__
+		Padding As DWORD
+	#endif
+	BytesCount As UINT
+	WChars(0 To (VALUEBSTR_BUFFER_CAPACITY + 1) - 1) As OLECHAR
+	
+	Declare Constructor()
+	Declare Constructor(ByRef rhs As Const WString)
+	Declare Constructor(ByRef rhs As Const WString, ByVal NewLength As Const Integer)
+	Declare Constructor(ByRef rhs As Const ValueBSTR)
+	Declare Constructor(ByRef rhs As Const BSTR)
+	
+	'Declare Destructor()
+	
+	Declare Operator Let(ByRef rhs As Const WString)
+	Declare Operator Let(ByRef rhs As Const ValueBSTR)
+	Declare Operator Let(ByRef rhs As Const BSTR)
+	
+	Declare Operator Cast()ByRef As Const WString
+	Declare Operator Cast()As Const BSTR
+	Declare Operator Cast()As Const Any Ptr
+	
+	Declare Operator &=(ByRef rhs As Const WString)
+	Declare Operator &=(ByRef rhs As Const ValueBSTR)
+	Declare Operator &=(ByRef rhs As Const BSTR)
+	
+	Declare Operator +=(ByRef rhs As Const WString)
+	Declare Operator +=(ByRef rhs As Const ValueBSTR)
+	Declare Operator +=(ByRef rhs As Const BSTR)
+	
+	Declare Sub Append(ByVal Ch As Const OLECHAR)
+	Declare Sub Append(ByRef rhs As Const WString, ByVal rhsLength As Const Integer)
+	
+	Declare Function GetTrailingNullChar()As WString Ptr
+	
+	Declare Property Length(ByVal NewLength As Const Integer)
+	Declare Property Length()As Const Integer
+	
 End Type
 
-Type IrcEvents As _IrcEvents
-
-Type LPIRCEVENTS As _IrcEvents Ptr
-
-Type _RawBuffer
-	Dim Length As Integer
-	' Без завершающего нулевого символа
-	Dim Buffer As ZString * IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
-End Type
-
-Type RawBuffer As _RawBuffer
-
-Type LPRAWBUFFER As _RawBuffer Ptr
+Declare Operator Len(ByRef lhs As Const ValueBSTR)As Integer
 
 Type IrcCommandProcessor As Function(ByVal pIrcClient As IrcClient Ptr, ByVal pPrefix As IrcPrefix Ptr, ByVal pwszIrcParam1 As WString Ptr, ByRef bstrIrcMessage As ValueBSTR)As HRESULT
 
 Type IrcPrefixInternal
-	Dim Nick As ValueBSTR
-	Dim User As ValueBSTR
-	Dim Host As ValueBSTR
+	Nick As ValueBSTR
+	User As ValueBSTR
+	Host As ValueBSTR
 End Type
 
-Type _IrcClient
-	Dim RecvOverlapped As WSAOVERLAPPED
-	Dim lpParameter As LPCLIENTDATA
-	Dim hEvent As HANDLE
-	Dim hHeap As HANDLE
-	Dim ClientSocket As SOCKET
-	Dim Events As IrcEvents
-	Dim CodePage As Integer
-	Dim ClientNick As ValueBSTR
-	Dim ClientVersion As ValueBSTR
-	Dim ClientUserInfo As ValueBSTR
-	Dim ReceiveBuffer As RawBuffer
-	Dim ErrorCode As HRESULT
-	Dim IsInitialized As Boolean
+Type SendClientContext
+	Overlap As WSAOVERLAPPED
+	pIrcClient As IrcClient Ptr
+	cbLength As Integer
+	Buffer As ZString * (SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM + 1)
 End Type
 
-Type SendOverlappedData
-	Dim SendOverlapped As WSAOVERLAPPED
-	Dim pIrcClient As IrcClient Ptr
-	Dim BufferLength As Long
-	' Без завершающего нулевого символа
-	Dim Buffer As ZString * SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM
+Type RecvClientContext
+	Overlap As WSAOVERLAPPED
+	pIrcClient As IrcClient Ptr
+	cbLength As Integer
+	Buffer As ZString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1)
 End Type
 
 Type CrLfA
-	Dim Cr As Byte
-	Dim Lf As Byte
+	Cr As Byte
+	Lf As Byte
 End Type
 
 Type SendBuffers
-	Dim Bytes As WSABUF
-	Dim CrLf As WSABUF
+	Bytes As WSABUF
+	CrLf As WSABUF
 End Type
 
-Declare Function FindCrLfA( _
-		ByVal Buffer As ZString Ptr, _
-		ByVal BufferLength As Integer, _
-		ByVal pIndex As Integer Ptr _
-)As Boolean
+Type _IrcClient
+	hEvent As HANDLE
+	ClientSocket As SOCKET
+	pEvents As IrcEvents Ptr
+	lpParameter As LPCLIENTDATA
+	pRecvContext As RecvClientContext Ptr
+	CodePage As Integer
+	ClientNick As ValueBSTR
+	ClientVersion As ValueBSTR
+	ClientUserInfo As ValueBSTR
+	ZeroEvents As IrcEvents
+	ErrorCode As HRESULT
+	IsInitialized As Boolean
+End Type
 
-Declare Sub ReceiveCompletionROUTINE( _
-	ByVal dwError As DWORD, _
-	ByVal cbTransferred As DWORD, _
-	ByVal lpOverlapped As LPWSAOVERLAPPED, _
-	ByVal dwFlags As DWORD _
-)
-
-Declare Function IrcClientSendAdmin( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal Server As BSTR _
+Declare Function StartRecvOverlapped( _
+	ByVal pIrcClient As IrcClient Ptr _
 )As HRESULT
 
-Declare Function IrcClientSendInfo( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal Server As BSTR _
-)As HRESULT
+Private Constructor ValueBSTR()
+	
+	'Padding = 0
+	BytesCount = 0
+	WChars(0) = 0
+	
+End Constructor
 
-Declare Function IrcClientSendAway( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal MessageText As BSTR _
-)As HRESULT
+Private Constructor ValueBSTR(ByRef lhs As Const WString)
+	
+	'Padding = 0
+	Dim lhsLength As Integer = lstrlenW(lhs)
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, lhsLength)
+	
+	BytesCount = Chars * SizeOf(OLECHAR)
+	CopyMemory(@WChars(0), @lhs, BytesCount)
+	WChars(Chars) = 0
+	
+End Constructor
 
-Declare Function IrcClientSendIsON( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal NickList As BSTR _
-)As HRESULT
+Private Constructor ValueBSTR(ByRef lhs As Const WString, ByVal NewLength As Const Integer)
+	
+	'Padding = 0
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, NewLength)
+	
+	BytesCount = Chars * SizeOf(OLECHAR)
+	CopyMemory(@WChars(0), @lhs, BytesCount)
+	WChars(Chars) = 0
+	
+End Constructor
 
-Declare Function IrcClientSendKick( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal Channel As BSTR, _
-	ByVal UserName As BSTR, _
-	ByVal MessageText As BSTR _
-)As HRESULT
+Private Constructor ValueBSTR(ByRef lhs As Const ValueBSTR)
+	
+	'Padding = 0
+	BytesCount = lhs.BytesCount
+	CopyMemory(@WChars(0), @lhs.WChars(0), BytesCount + SizeOf(OLECHAR))
+	
+End Constructor
 
-Declare Function IrcClientSendInvite( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal UserName As BSTR, _
-	ByVal Channel As BSTR _
-)As HRESULT
+Private Constructor ValueBSTR(ByRef lhs As Const BSTR)
+	
+	'Padding = 0
+	Dim lhsLength As Integer = CInt(SysStringLen(lhs))
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, lhsLength)
+	
+	BytesCount = Chars * SizeOf(OLECHAR)
+	CopyMemory(@WChars(0), lhs, BytesCount)
+	WChars(Chars) = 0
+	
+End Constructor
 
-Declare Sub SendCompletionROUTINE( _
-	ByVal dwError As DWORD, _
-	ByVal cbTransferred As DWORD, _
-	ByVal lpOverlapped As LPWSAOVERLAPPED, _
-	ByVal dwFlags As DWORD _
-)
+Private Operator ValueBSTR.Let(ByRef lhs As Const WString)
+	
+	'Padding = 0
+	Dim lhsLength As Integer = lstrlenW(lhs)
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, lhsLength)
+	
+	BytesCount = Chars * SizeOf(OLECHAR)
+	CopyMemory(@WChars(0), @lhs, BytesCount)
+	WChars(Chars) = 0
+	
+End Operator
 
-Function ResolveHostA( _
-		ByVal Host As PCSTR, _
-		ByVal Port As PCSTR, _
-		ByVal ppAddressList As addrinfo Ptr Ptr _
-	)As HRESULT
+Private Operator ValueBSTR.Let(ByRef lhs As Const ValueBSTR)
 	
-	Dim hints As addrinfo
-	With hints
-		.ai_family = AF_UNSPEC ' AF_INET или AF_INET6
-		.ai_socktype = SOCK_STREAM
-		.ai_protocol = IPPROTO_TCP
-	End With
+	'Padding = 0
+	BytesCount = lhs.BytesCount
+	CopyMemory(@WChars(0), @lhs.WChars(0), BytesCount + SizeOf(OLECHAR))
 	
-	*ppAddressList = NULL
-	
-	If getaddrinfo(Host, Port, @hints, ppAddressList) = 0 Then
-		
-		Return S_OK
-		
-	End If
-	
-	Return HRESULT_FROM_WIN32(WSAGetLastError())
-	
-End Function
+End Operator
 
-Function ResolveHostW( _
-		ByVal Host As PCWSTR, _
-		ByVal Port As PCWSTR, _
-		ByVal ppAddressList As addrinfoW Ptr Ptr _
-	)As HRESULT
+Private Operator ValueBSTR.Let(ByRef lhs As Const BSTR)
 	
-	Dim hints As addrinfoW
-	With hints
-		.ai_family = AF_UNSPEC ' AF_INET или AF_INET6
-		.ai_socktype = SOCK_STREAM
-		.ai_protocol = IPPROTO_TCP
-	End With
+	'Padding = 0
+	Dim lhsLength As Integer = CInt(SysStringLen(lhs))
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, lhsLength)
 	
-	*ppAddressList = NULL
+	BytesCount = Chars * SizeOf(OLECHAR)
+	CopyMemory(@WChars(0), lhs, BytesCount)
+	WChars(Chars) = 0
 	
-	If GetAddrInfoW(Host, Port, @hints, ppAddressList) = 0 Then
-		
-		Return S_OK
-		
-	End If
-	
-	Return HRESULT_FROM_WIN32(WSAGetLastError())
-	
-End Function
+End Operator
 
-Function CreateSocketAndBindA( _
-		ByVal LocalAddress As PCSTR, _
-		ByVal LocalPort As PCSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
+Private Operator ValueBSTR.Cast()ByRef As Const WString
 	
-	Dim ClientSocket As SOCKET = WSASocket(AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED)
+	Return WChars(0)
 	
-	If ClientSocket = INVALID_SOCKET Then
-		
-		Return HRESULT_FROM_WIN32(WSAGetLastError())
-		
-	End If
-	
-	Dim pAddressList As addrinfo Ptr = NULL
-	Dim hr As HRESULT = ResolveHostA(LocalAddress, LocalPort, @pAddressList)
-	
-	If FAILED(hr) Then
-		
-		Return HRESULT_FROM_WIN32(WSAGetLastError())
-		
-	End If
-	
-	Dim pAddress As addrinfo Ptr = pAddressList
-	Dim BindResult As Integer = Any
-	
-	Dim e As Long = 0
-	Do
-		BindResult = bind(ClientSocket, Cast(LPSOCKADDR, pAddress->ai_addr), pAddress->ai_addrlen)
-		e = WSAGetLastError()
-		
-		If BindResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfo(pAddressList)
-	
-	If BindResult <> 0 Then
-		
-		Return HRESULT_FROM_WIN32(e)
-		
-	End If
-	
-	*pSocket = ClientSocket
-	Return S_OK
-	
-End Function
+End Operator
 
-Function CreateSocketAndBindW( _
-		ByVal LocalAddress As PCWSTR, _
-		ByVal LocalPort As PCWSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
+Private Operator ValueBSTR.Cast()As Const BSTR
 	
-	Dim ClientSocket As SOCKET = WSASocket(AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED)
+	Return @WChars(0)
 	
-	If ClientSocket = INVALID_SOCKET Then
-		
-		Return HRESULT_FROM_WIN32(WSAGetLastError())
-		
-	End If
-	
-	Dim pAddressList As addrinfoW Ptr = NULL
-	Dim hr As HRESULT = ResolveHostW(LocalAddress, LocalPort, @pAddressList)
-	
-	If FAILED(hr) Then
-		
-		closesocket(ClientSocket)
-		Return hr
-		
-	End If
-	
-	Dim pAddress As addrinfoW Ptr = pAddressList
-	Dim BindResult As Long = Any
-	
-	Dim e As Long = 0
-	Do
-		BindResult = bind(ClientSocket, Cast(LPSOCKADDR, pAddress->ai_addr), pAddress->ai_addrlen)
-		e = WSAGetLastError()
-		
-		If BindResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfoW(pAddressList)
-	
-	If BindResult <> 0 Then
-		
-		Return HRESULT_FROM_WIN32(e)
-		
-	End If
-	
-	*pSocket = ClientSocket
-	Return S_OK
-	
-End Function
+End Operator
 
-Function CloseSocketConnection( _
-		ByVal ClientSocket As SOCKET _
-	)As HRESULT
+Private Operator ValueBSTR.Cast()As Const Any Ptr
 	
-	Dim res As Integer = shutdown(ClientSocket, SD_BOTH)
+	Return CPtr(Any Ptr, @WChars(0))
 	
-	If res <> 0 Then
-		
-		Dim e As ULONG = WSAGetLastError()
-		Dim hr As HRESULT = HRESULT_FROM_WIN32(e)
-		
-		Return hr
-		
-	End If
-	
-	res = closesocket(ClientSocket)
-	
-	If res <> 0 Then
-		
-		Dim e As ULONG = WSAGetLastError()
-		Dim hr As HRESULT = HRESULT_FROM_WIN32(e)
-		
-		Return hr
-		
-	End If
-	
-	Return S_OK
-	
-End Function
+End Operator
 
-Function SetReceiveTimeout( _
-		ByVal ClientSocket As SOCKET, _
-		ByVal dwMilliseconds As DWORD _
-	)As HRESULT
+Private Operator ValueBSTR.&=(ByRef rhs As Const WString)
 	
-	Dim res As Integer = setsockopt( _
-		ClientSocket, _
-		SOL_SOCKET, _
-		SO_RCVTIMEO, _
-		CPtr(ZString Ptr, @dwMilliseconds), _
-		SizeOf(DWORD) _
-	)
+	Append(rhs, lstrlenW(rhs))
 	
-	If res <> 0 Then
-		
-		Dim e As Integer = WSAGetLastError()
-		Dim hr As HRESULT = HRESULT_FROM_WIN32(e)
-		
-		Return hr
-		
-	End If
-	
-	Return S_OK
-	
-End Function
+End Operator
 
-Function ConnectToServerA( _
-		ByVal LocalAddress As PCSTR, _
-		ByVal LocalPort As PCSTR, _
-		ByVal RemoteAddress As PCSTR, _
-		ByVal RemotePort As PCSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
-	
-	Dim ClientSocket As SOCKET = Any
-	Dim hr As HRESULT = CreateSocketAndBindA(LocalAddress, LocalPort, @ClientSocket)
-	
-	If FAILED(hr) Then
-		
-		Return hr
-		
-	End If
-	
-	Dim pAddressList As addrinfo Ptr = NULL
-	hr = ResolveHostA(RemoteAddress, RemotePort, @pAddressList)
-	
-	If FAILED(hr) Then
-		
-		closesocket(ClientSocket)
-		Return HRESULT_FROM_WIN32(WSAGetLastError())
-		
-	End If
-	
-	Dim pAddress As addrinfo Ptr = pAddressList
-	Dim ConnectResult As Integer = Any
-	
-	Dim e As Long = 0
-	Do
-		ConnectResult = connect(ClientSocket, Cast(LPSOCKADDR, pAddress->ai_addr), pAddress->ai_addrlen)
-		e = WSAGetLastError()
-		
-		If ConnectResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfo(pAddressList)
-	
-	If ConnectResult <> 0 Then
-		
-		closesocket(ClientSocket)
-		Return HRESULT_FROM_WIN32(e)
-		
-	End If
-	
-	*pSocket = ClientSocket
-	Return S_OK
-	
-End Function
+' Declare Operator &=(ByRef rhs As Const ValueBSTR)
 
-Function ConnectToServerW( _
-		ByVal LocalAddress As PCWSTR, _
-		ByVal LocalPort As PCWSTR, _
-		ByVal RemoteAddress As PCWSTR, _
-		ByVal RemotePort As PCWSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
-	
-	Dim ClientSocket As SOCKET = Any
-	Dim hr As HRESULT = CreateSocketAndBindW(LocalAddress, LocalPort, @ClientSocket)
-	
-	If FAILED(hr) Then
-		
-		Return hr
-		
-	End If
-	
-	Dim pAddressList As addrinfoW Ptr = NULL
-	hr = ResolveHostW(RemoteAddress, RemotePort, @pAddressList)
-	
-	If FAILED(hr) Then
-		
-		closesocket(ClientSocket)
-		Return HRESULT_FROM_WIN32(WSAGetLastError())
-		
-	End If
-	
-	Dim pAddress As addrinfoW Ptr = pAddressList
-	Dim ConnectResult As Integer = Any
-	
-	Dim e As Long = 0
-	Do
-		ConnectResult = connect(ClientSocket, Cast(LPSOCKADDR, pAddress->ai_addr), pAddress->ai_addrlen)
-		e = WSAGetLastError()
-		
-		If ConnectResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfoW(pAddressList)
-	
-	If ConnectResult <> 0 Then
-		
-		closesocket(ClientSocket)
-		Return HRESULT_FROM_WIN32(e)
-		
-	End If
-	
-	*pSocket = ClientSocket
-	Return S_OK
-	
-End Function
+Private Operator ValueBSTR.&=(ByRef rhs As Const BSTR)
+	Append(*CPtr(WString Ptr, rhs), SysStringLen(rhs))
+End Operator
 
-Function FindCrLfA( _
-		ByVal Buffer As ZString Ptr, _
-		ByVal BufferLength As Integer, _
-		ByVal pIndex As Integer Ptr _
-	)As Boolean
+Private Operator ValueBSTR.+=(ByRef rhs As Const WString)
 	
-	For i As Integer = 0 To BufferLength - NewLineStringLength
-		If Buffer[i] = Characters.CarriageReturn AndAlso Buffer[i + 1] = Characters.LineFeed Then
-			*pIndex = i
-			Return True
-		End If
-	Next
+	Append(rhs, lstrlenW(rhs))
 	
-	*pIndex = 0
-	Return False
-	
-End Function
+End Operator
 
-Function StartRecvOverlapped( _
-		ByVal pIrcClient As IrcClient Ptr _
-	)As HRESULT
-	
-	Const WsaBufBuffersCount As DWORD = 1
-	Dim RecvBuf As WSABUF = Any
-	RecvBuf.len = Cast(ULONG, IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - pIrcClient->ReceiveBuffer.Length)
-	RecvBuf.buf = @pIrcClient->ReceiveBuffer.Buffer[pIrcClient->ReceiveBuffer.Length]
-	
-	ZeroMemory(@pIrcClient->RecvOverlapped, SizeOf(WSAOVERLAPPED))
-	
-	Dim Flags As DWORD = 0
-	Dim res As Long = WSARecv( _
-		pIrcClient->ClientSocket, _
-		@RecvBuf, _
-		WsaBufBuffersCount, _
-		NULL, _
-		@Flags, _
-		@pIrcClient->RecvOverlapped, _
-		@ReceiveCompletionROUTINE _
-	)
-	If res <> 0 Then
-		
-		res = WSAGetLastError()
-		If res <> WSA_IO_PENDING Then
-			Return HRESULT_FROM_WIN32(res)
-		End If
-		
-	End If
-	
-	Return S_OK
-	
-End Function
+' Declare Operator +=(ByRef rhs As Const ValueBSTR)
+' Declare Operator +=(ByRef rhs As Const BSTR)
 
-Sub ReceiveCompletionROUTINE( _
-		ByVal dwError As DWORD, _
-		ByVal cbTransferred As DWORD, _
-		ByVal lpOverlapped As LPWSAOVERLAPPED, _
-		ByVal dwFlags As DWORD _
-	)
+Private Sub ValueBSTR.Append(ByVal Ch As Const OLECHAR)
+	Dim meLength As Integer = Len(this)
+	Dim UnusedChars As Integer = VALUEBSTR_BUFFER_CAPACITY - meLength
 	
-	Dim pIrcClient As IrcClient Ptr = CPtr(IrcClient Ptr, lpOverlapped)
-	
-	If dwError <> 0 Then
-		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
-		SetEvent(pIrcClient->hEvent)
-		Exit Sub
-	End If
-	
-	pIrcClient->ReceiveBuffer.Length += CInt(cbTransferred)
-	
-	Dim CrLfIndex As Integer = Any
-	Dim FindCrLfResult As Boolean = FindCrLfA( _
-		@pIrcClient->ReceiveBuffer.Buffer, _
-		pIrcClient->ReceiveBuffer.Length, _
-		@CrLfIndex _
-	)
-	
-	If FindCrLfResult = False Then
-		
-		If pIrcClient->ReceiveBuffer.Length >= IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM Then
-			FindCrLfResult = True
-			CrLfIndex = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 2
-			pIrcClient->ReceiveBuffer.Length = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
-		End If
-		
-	End If
-	
-	Do While FindCrLfResult
-		
-		Scope
-			Dim bstrServerResponse As ValueBSTR = Any
-			' bstrServerResponse.PlaceHolder
-			' bstrServerResponse.BytesCount
-			' bstrServerResponse.WChars
-			Dim ServerResponseLength As Long = MultiByteToWideChar( _
-				pIrcClient->CodePage, _
-				0, _
-				@pIrcClient->ReceiveBuffer.Buffer, _
-				CrLfIndex, _
-				@bstrServerResponse.WChars(0), _
-				MAX_VALUEBSTR_BUFFER_LENGTH _
-			)
-			
-			If ServerResponseLength <> 0 Then
-				bstrServerResponse.BytesCount = ServerResponseLength * SizeOf(OLECHAR)
-				bstrServerResponse.WChars(ServerResponseLength) = Characters.NullChar
-				
-				Scope
-					If CUInt(pIrcClient->Events.lpfnReceivedRawMessageEvent) Then
-						pIrcClient->Events.lpfnReceivedRawMessageEvent(pIrcClient->lpParameter, @pIrcClient->ReceiveBuffer.Buffer, CrLfIndex + 1)
-					End If
-				End Scope
-				
-				Scope
-					Dim hr As HRESULT = ParseData(pIrcClient, bstrServerResponse)
-					If FAILED(hr) Then
-						pIrcClient->ErrorCode = hr
-						SetEvent(pIrcClient->hEvent)
-						Exit Sub
-					End If
-				End Scope
-				
-			End If
-		End Scope
-		
-		Scope
-			Dim NewStartingIndex As Integer = CrLfIndex + 2
-			
-			If NewStartingIndex = pIrcClient->ReceiveBuffer.Length Then
-				pIrcClient->ReceiveBuffer.Length = 0
-			Else
-				memmove( _
-					@pIrcClient->ReceiveBuffer.Buffer, _
-					@pIrcClient->ReceiveBuffer.Buffer[NewStartingIndex], _
-					IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - NewStartingIndex + 1 _
-				)
-				pIrcClient->ReceiveBuffer.Length -= NewStartingIndex
-			End If
-		End Scope
-		
-		FindCrLfResult = FindCrLfA( _
-			@pIrcClient->ReceiveBuffer.Buffer, _
-			pIrcClient->ReceiveBuffer.Length, _
-			@CrLfIndex _
-		)
-	Loop
-	
-	Dim hr As HRESULT = StartRecvOverlapped(pIrcClient)
-	If FAILED(hr) Then
-		pIrcClient->ErrorCode = hr
-		SetEvent(pIrcClient->hEvent)
+	If UnusedChars > 0 Then
+		BytesCount += SizeOf(OLECHAR)
+		WChars(meLength) = Ch
+		WChars(meLength + 1) = 0
 	End If
 	
 End Sub
 
-Function IrcClientChangeNick( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
+Private Sub ValueBSTR.Append(ByRef rhs As Const WString, ByVal rhsLength As Const Integer)
 	
-	'NICK space <nickname>
+	Dim meLength As Integer = Len(this)
+	Dim UnusedChars As Integer = VALUEBSTR_BUFFER_CAPACITY - meLength
 	
-	Dim NickLength As Integer = SysStringLen(Nick)
-	If NickLength <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NickStringWithSpace, NickStringWithSpaceLength)
-		SendString &= Nick
+	If UnusedChars > 0 Then
 		
-		pIrcClient->ClientNick = Nick
+		Dim Chars As Integer = min(UnusedChars, rhsLength)
 		
-		Return StartSendOverlapped(pIrcClient, SendString)
+		BytesCount = (meLength + Chars) * SizeOf(OLECHAR)
+		CopyMemory(@WChars(meLength), @rhs, Chars * SizeOf(OLECHAR))
+		WChars(meLength + Chars) = 0
+		
 	End If
-	
-	Return S_FALSE
-	
-End Function
 
-Function IrcClientQuitFromServer( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal QuitText As BSTR _
-	)As HRESULT
-	
-	'QUIT [space :<QuitText>]
-	
-	Dim SendString As ValueBSTR = Any
-	
-	If SysStringLen(QuitText) <> 0 Then
-		SendString = Type<ValueBSTR>(QuitStringWithSpaceComma, QuitStringWithSpaceCommaLength)
-		SendString &= QuitText
-	Else
-		SendString = Type<ValueBSTR>(QuitString, QuitStringLength)
-	End If
-	
-	Return StartSendOverlapped(pIrcClient, SendString)
-	
-End Function
-
-Function IrcClientSendPong( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Server As BSTR _
-	)As HRESULT
-	
-	'PONG space <Server>
-	If SysStringLen(Server) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PongStringWithSpace, PongStringWithSpaceLength)
-		SendString &= Server
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendPing( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Server As BSTR _
-	)As HRESULT
-	
-	' От сервера:
-	'PING space :<Server>
-	
-	' От клиента:
-	'PING space <Server>
-	
-	If SysStringLen(Server) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PingStringWithSpace, PingStringWithSpaceLength)
-		SendString &= Server
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientJoinChannel( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Channel As BSTR _
-	)As HRESULT
-	
-	'JOIN space <channel>
-	If SysStringLen(Channel) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(JoinStringWithSpace, JoinStringWithSpaceLength)
-		SendString &= Channel
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientPartChannel( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Channel As BSTR, _
-		ByVal PartText As BSTR _
-	)As HRESULT
-	
-	'PART space <channel> [space :<partmessage>]
-	If SysStringLen(Channel) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PartStringWithSpace, PartStringWithSpaceLength)
-		SendString &= Channel
-		
-		If SysStringLen(PartText) <> 0 Then
-			SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-			SendString &= PartText
-		End If
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientRetrieveTopic( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Channel As BSTR _
-	)As HRESULT
-	
-	'TOPIC space <Channel>
-	If SysStringLen(Channel) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(TopicStringWithSpace, TopicStringWithSpaceLength)
-		SendString &= Channel
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSetTopic( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Channel As BSTR, _
-		ByVal Topic As BSTR _
-	)As HRESULT
-	
-	'TOPIC <Channel> :<Topic>
-	
-	If SysStringLen(Channel) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(TopicStringWithSpace, TopicStringWithSpaceLength)
-		SendString &= Channel
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString &= Topic
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendPrivateMessage( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal MessageTarget As BSTR, _
-		ByVal MessageText As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <msgtarget> space : <text to be sent>
-	
-	If SysStringLen(MessageTarget) <> 0 AndAlso SysStringLen(MessageText) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= MessageTarget
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString &= MessageText
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendNotice( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal NoticeTarget As BSTR, _
-		ByVal NoticeText As BSTR _
-	)As HRESULT
-	
-	'NOTICE space <msgtarget> space : <text to be sent>
-	
-	If SysStringLen(NoticeTarget) <> 0 AndAlso SysStringLen(NoticeText) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, NoticeStringWithSpaceLength)
-		SendString &= NoticeTarget
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString &= NoticeText
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendWho( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
-	
-	'WHO <nick>
-	If SysStringLen(Nick) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(WhoStringWithSpace, WhoStringWithSpaceLength)
-		SendString &= Nick
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendWhoIs( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
-	
-	'WHOIS <nick>
-	If SysStringLen(Nick) <> 0 Then
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(WhoIsStringWithSpace, WhoIsStringWithSpaceLength)
-		SendString &= Nick
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpPingRequest( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal TimeStamp As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <Nick> space : SOH PING space<TimeStamp>SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeStamp) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(PingStringWithSpace, PingStringWithSpaceLength)
-		SendString &= TimeStamp
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpTimeRequest( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <Nick> space : SOH TIME SOH
-	
-	If SysStringLen(Nick) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(TimeString, TimeStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpUserInfoRequest( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <Nick> space : SOH USERINFO SOH
-	
-	If SysStringLen(Nick) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(UserInfoString, UserInfoStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpVersionRequest( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <Nick> space : SOH VERSION SOH
-	
-	If SysStringLen(Nick) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(VersionString, VersionStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpAction( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Channel As BSTR, _
-		ByVal MessageText As BSTR _
-	)As HRESULT
-	
-	'PRIVMSG space <Channel> space : SOH ACTION space <MessageText>SOH
-	
-	If SysStringLen(Channel) <> 0 AndAlso SysStringLen(MessageText) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Channel
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(ActionStringWithSpace, ActionStringWithSpaceLength)
-		SendString &= MessageText
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpPingResponse( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal TimeStamp As BSTR _
-	)As HRESULT
-	
-	'NOTICE space <Nick> space : SOH PING space <TimeStamp>SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeStamp) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, NoticeStringWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(PingStringWithSpace, PingStringWithSpaceLength)
-		SendString &= TimeStamp
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpTimeResponse( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal TimeValue As BSTR _
-	)As HRESULT
-	
-	'NOTICE space <Nick> space : SOH TIME space <TimeValue>SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeValue) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, NoticeStringWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(TimeStringWithSpace, TimeStringWithSpaceLength)
-		SendString &= TimeValue
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpUserInfoResponse( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal UserInfo As BSTR _
-	)As HRESULT
-	
-	'NOTICE space <Nick> space : SOH USERINFO space <UserInfo>SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(UserInfo) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, NoticeStringWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(UserInfoStringWithSpace, UserInfoStringWithSpaceLength)
-		SendString &= UserInfo
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendCtcpVersionResponse( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal Version As BSTR _
-	)As HRESULT
-	
-	'NOTICE space <Nick> space : SOH VERSION space <Version>SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(Version) <> 0 Then
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, NoticeStringWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(VersionStringWithSpace, VersionStringWithSpaceLength)
-		SendString &= Version
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendDccSend( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal Nick As BSTR, _
-		ByVal FileName As BSTR, _
-		ByVal IPAddress As BSTR, _
-		ByVal Port As Integer, _
-		ByVal FileLength As ULongInt _
-	)As HRESULT
-	
-	'PRIVMSG space <Nick> space : SOH DCC SEND space <FileName> space <IPAddress> space <Port> [space <FileLength>]SOH
-	
-	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(FileName) <> 0 AndAlso SysStringLen(IPAddress) <> 0 Then
-		
-		Dim wszPort As WString * 100 = Any
-		_ltow(CLng(Port), @wszPort, 10)
-		
-		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, PrivateMessageWithSpaceLength)
-		SendString &= Nick
-		SendString.Append(SpaceWithCommaString, SpaceWithCommaStringLength)
-		SendString.Append(Characters.StartOfHeading)
-		SendString.Append(DccSendWithSpace, DccSendWithSpaceLength)
-		SendString &= FileName
-		SendString.Append(Characters.WhiteSpace)
-		SendString &= IPAddress
-		SendString.Append(Characters.WhiteSpace)
-		SendString &= wszPort
-		
-		If FileLength > 0 Then
-			Dim wszFileLength As WString * 64 = Any
-			_i64tow(FileLength, @wszFileLength, 10)
-			
-			SendString.Append(Characters.WhiteSpace)
-			SendString &= wszFileLength
-		End If
-		
-		SendString.Append(Characters.StartOfHeading)
-		
-		Return StartSendOverlapped(pIrcClient, SendString)
-	End If
-	
-	Return S_FALSE
-	
-End Function
-
-Function IrcClientSendRawMessage( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal RawText As BSTR _
-	)As HRESULT
-	
-	Dim SendString As ValueBSTR = Type<ValueBSTR>(RawText)
-	
-	Return StartSendOverlapped(pIrcClient, SendString)
-	
-End Function
-
-Function StartSendOverlapped( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByRef strData As ValueBSTR _
-	)As HRESULT
-	
-	Dim hr As HRESULT = E_OUTOFMEMORY
-	Dim pSendOverlappedData As SendOverlappedData Ptr = HeapAlloc( _
-		pIrcClient->hHeap, _
-		0, _
-		SizeOf(SendOverlappedData) _
-	)
-	
-	If pSendOverlappedData <> NULL Then
-		
-		pSendOverlappedData->BufferLength = WideCharToMultiByte( _
-			pIrcClient->CodePage, _
-			0, _
-			Cast(WString Ptr, strData), _
-			Len(strData), _
-			@pSendOverlappedData->Buffer, _
-			SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
-			NULL, _
-			NULL _
-		)
-		
-		If pSendOverlappedData->BufferLength <> 0 Then
-			
-			ZeroMemory(@pSendOverlappedData->SendOverlapped, SizeOf(WSAOVERLAPPED))
-			
-			pSendOverlappedData->pIrcClient = pIrcClient
-			
-			Dim CrLf As CrLfA = Any
-			CrLf.Cr = Characters.CarriageReturn
-			CrLf.Lf = Characters.LineFeed
-			
-			Dim SendBuf As SendBuffers = Any
-			SendBuf.Bytes.len = Cast(ULONG, min(pSendOverlappedData->BufferLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
-			SendBuf.Bytes.buf = @pSendOverlappedData->Buffer
-			
-			SendBuf.CrLf.len = CrLfALength
-			SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
-			
-			Const dwSendFlags As DWORD = 0
-			Dim res As Long = WSASend( _
-				pIrcClient->ClientSocket, _
-				CPtr(WSABUF Ptr, @SendBuf), _
-				SendBuffersCount, _
-				NULL, _
-				dwSendFlags, _
-				@pSendOverlappedData->SendOverlapped, _
-				@SendCompletionROUTINE _
-			)
-			Dim ErrorCode As Long = WSAGetLastError()
-			hr = HRESULT_FROM_WIN32(ErrorCode)
-			
-			If res = 0 Then
-				Return S_OK
-			End If
-			
-			If ErrorCode = WSA_IO_PENDING Then
-				Return S_OK
-			End If
-			
-		End If
-		
-		hr = HRESULT_FROM_WIN32(GetLastError())
-		HeapFree(pIrcClient->hHeap, 0, pSendOverlappedData)
-		
-	End If
-	
-	Return hr
-	
-End Function
-
-Sub SendCompletionROUTINE( _
-		ByVal dwError As DWORD, _
-		ByVal cbTransferred As DWORD, _
-		ByVal lpOverlapped As LPWSAOVERLAPPED, _
-		ByVal dwFlags As DWORD _
-	)
-	
-	Dim pSendOverlappedData As SendOverlappedData Ptr = CPtr(SendOverlappedData Ptr, lpOverlapped)
-	Dim pIrcClient As IrcClient Ptr = pSendOverlappedData->pIrcClient
-	
-	If dwError <> 0 Then
-		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
-		SetEvent(pIrcClient->hEvent)
-		Exit Sub
-	End If
-	
-	If CUInt(pIrcClient->Events.lpfnSendedRawMessageEvent) Then
-		pIrcClient->Events.lpfnSendedRawMessageEvent(pIrcClient->lpParameter, @pSendOverlappedData->Buffer, pSendOverlappedData->BufferLength)
-	End If
-	
-	HeapFree(pIrcClient->hHeap, 0, pSendOverlappedData)
-	
 End Sub
 
-Function GetIrcCommand( _
+Private Operator Len(ByRef b As Const ValueBSTR)As Integer
+	
+	' Return SysStringLen(b)
+	Return b.BytesCount \ SizeOf(OLECHAR)
+	
+End Operator
+
+Private Property ValueBSTR.Length(ByVal NewLength As Const Integer)
+	Dim Chars As Integer = min(VALUEBSTR_BUFFER_CAPACITY, NewLength)
+	BytesCount = Chars * SizeOf(OLECHAR)
+	WChars(Chars) = 0
+End Property
+
+Private Property ValueBSTR.Length()As Const Integer
+	Return BytesCount \ SizeOf(OLECHAR)
+End Property
+
+Private Function ValueBSTR.GetTrailingNullChar()As WString Ptr
+	Return CPtr(WString Ptr, @WChars(Len(this)))
+End Function
+
+Private Function GetIrcCommand( _
 		ByVal w As WString Ptr, _
 		ByVal pIrcCommand As IrcCommand Ptr _
 	)As Boolean
 	
-	If lstrcmpW(w, @PingString) = 0 Then
+	If lstrcmpW(w, @WStr(PingString)) = 0 Then
 		*pIrcCommand = IrcCommand.Ping
 		Return True
 	End If
 	
-	If lstrcmpW(w, @PrivateMessage) = 0 Then
+	If lstrcmpW(w, @WStr(PrivateMessage)) = 0 Then
 		*pIrcCommand = IrcCommand.PrivateMessage
 		Return True
 	End If
 	
-	If lstrcmpW(w, @JoinString) = 0 Then
+	If lstrcmpW(w, @WStr(JoinString)) = 0 Then
 		*pIrcCommand = IrcCommand.Join
 		Return True
 	End If
 	
-	If lstrcmpW(w, @QuitString) = 0 Then
+	If lstrcmpW(w, @WStr(QuitString)) = 0 Then
 		*pIrcCommand = IrcCommand.Quit
 		Return True
 	End If
 	
-	If lstrcmpW(w, @PartString) = 0 Then
+	If lstrcmpW(w, @WStr(PartString)) = 0 Then
 		*pIrcCommand = IrcCommand.Part
 		Return True
 	End If
 	
-	If lstrcmpW(w, @NoticeString) = 0 Then
+	If lstrcmpW(w, @WStr(NoticeString)) = 0 Then
 		*pIrcCommand = IrcCommand.Notice
 		Return True
 	End If
 	
-	If lstrcmpW(w, @NickString) = 0 Then
+	If lstrcmpW(w, @WStr(NickString)) = 0 Then
 		*pIrcCommand = IrcCommand.Nick
 		Return True
 	End If
 	
-	If lstrcmpW(w, @ErrorString) = 0 Then
+	If lstrcmpW(w, @WStr(ErrorString)) = 0 Then
 		*pIrcCommand = IrcCommand.Error
 		Return True
 	End If
 	
-	If lstrcmpW(w, @KickString) = 0 Then
+	If lstrcmpW(w, @WStr(KickString)) = 0 Then
 		*pIrcCommand = IrcCommand.Kick
 		Return True
 	End If
 	
-	If lstrcmpW(w, @ModeString) = 0 Then
+	If lstrcmpW(w, @WStr(ModeString)) = 0 Then
 		*pIrcCommand = IrcCommand.Mode
 		Return True
 	End If
 	
-	If lstrcmpW(w, @TopicString) = 0 Then
+	If lstrcmpW(w, @WStr(TopicString)) = 0 Then
 		*pIrcCommand = IrcCommand.Topic
 		Return True
 	End If
 	
-	If lstrcmpW(w, @InviteString) = 0 Then
+	If lstrcmpW(w, @WStr(InviteString)) = 0 Then
 		*pIrcCommand = IrcCommand.Invite
 		Return True
 	End If
 	
-	If lstrcmpW(w, @PongString) = 0 Then
+	If lstrcmpW(w, @WStr(PongString)) = 0 Then
 		*pIrcCommand = IrcCommand.Pong
 		Return True
 	End If
 	
-	If lstrcmpW(w, @SQuitString) = 0 Then
+	If lstrcmpW(w, @WStr(SQuitString)) = 0 Then
 		*pIrcCommand = IrcCommand.SQuit
 		Return True
 	End If
@@ -1425,7 +447,7 @@ Function GetIrcCommand( _
 	
 End Function
 
-Function IsNumericIrcCommand( _
+Private Function IsNumericIrcCommand( _
 		ByVal w As WString Ptr, _
 		ByVal Length As Integer _
 	)As Boolean
@@ -1444,7 +466,7 @@ Function IsNumericIrcCommand( _
 	
 End Function
 
-Function GetIrcServerName( _
+Private Function GetIrcServerName( _
 		ByVal strData As WString Ptr _
 	)As WString Ptr
 	
@@ -1457,7 +479,7 @@ Function GetIrcServerName( _
 	
 End Function
 
-Function SeparateWordBySpace( _
+Private Function SeparateWordBySpace( _
 		ByVal wStart As WString Ptr _
 	)As WString Ptr
 	
@@ -1472,7 +494,7 @@ Function SeparateWordBySpace( _
 	
 End Function
 
-Function GetIrcMessageText( _
+Private Function GetIrcMessageText( _
 		ByVal strData As WString Ptr _
 	)As WString Ptr
 	
@@ -1486,27 +508,27 @@ Function GetIrcMessageText( _
 	
 End Function
 
-Function GetCtcpCommand( _
+Private Function GetCtcpCommand( _
 		ByVal w As WString Ptr _
 	)As CtcpMessageKind
 	
-	If lstrcmpW(w, @PingString) = 0 Then
+	If lstrcmpW(w, @WStr(PingString)) = 0 Then
 		Return CtcpMessageKind.Ping
 	End If
 	
-	If lstrcmpW(w, @ActionString) = 0 Then
+	If lstrcmpW(w, @WStr(ActionString)) = 0 Then
 		Return CtcpMessageKind.Action
 	End If
 	
-	If lstrcmpW(w, @UserInfoString) = 0 Then
+	If lstrcmpW(w, @WStr(UserInfoString)) = 0 Then
 		Return CtcpMessageKind.UserInfo
 	End If
 	
-	If lstrcmpW(w, @TimeString) = 0 Then
+	If lstrcmpW(w, @WStr(TimeString)) = 0 Then
 		Return CtcpMessageKind.Time
 	End If
 	
-	If lstrcmpW(w, @VersionString) = 0 Then
+	If lstrcmpW(w, @WStr(VersionString)) = 0 Then
 		Return CtcpMessageKind.Version
 	End If
 	
@@ -1514,7 +536,7 @@ Function GetCtcpCommand( _
 	
 End Function
 
-Function GetIrcPrefixInternal( _
+Private Function GetIrcPrefixInternal( _
 		ByVal pIrcPrefixInternal As IrcPrefixInternal Ptr, _
 		ByRef bstrIrcMessage As ValueBSTR _
 	)As Integer
@@ -1546,9 +568,9 @@ Function GetIrcPrefixInternal( _
 			Dim wExclamationChar As WString Ptr = StrChrW(pPrefixStart, Characters.ExclamationMark)
 			If wExclamationChar = NULL Then
 				NickLength = wWhiteSpaceChar - pwszIrcMessage - 1
-				pUser = @EmptyString
+				pUser = @WStr(EmptyString)
 				UserLength = 0
-				pHost = @EmptyString
+				pHost = @WStr(EmptyString)
 				HostLength = 0
 			Else
 				NickLength = wExclamationChar - pwszIrcMessage - 1
@@ -1560,7 +582,7 @@ Function GetIrcPrefixInternal( _
 				If wCommercialAtChar = NULL Then
 					UserLength = wWhiteSpaceChar - wExclamationChar - 1
 					
-					pHost = @EmptyString
+					pHost = @WStr(EmptyString)
 					HostLength = 0
 				Else
 					UserLength = wCommercialAtChar - wExclamationChar - 1
@@ -1573,20 +595,20 @@ Function GetIrcPrefixInternal( _
 			
 		Else
 			IrcPrefixLength = 0
-			pNick = @EmptyString
+			pNick = @WStr(EmptyString)
 			NickLength = 0
-			pUser = @EmptyString
+			pUser = @WStr(EmptyString)
 			UserLength = 0
-			pHost = @EmptyString
+			pHost = @WStr(EmptyString)
 			HostLength = 0
 		End If
 	Else
 		IrcPrefixLength = 0
-		pNick = @EmptyString
+		pNick = @WStr(EmptyString)
 		NickLength = 0
-		pUser = @EmptyString
+		pUser = @WStr(EmptyString)
 		UserLength = 0
-		pHost = @EmptyString
+		pHost = @WStr(EmptyString)
 		HostLength = 0
 	End If
 	
@@ -1598,7 +620,7 @@ Function GetIrcPrefixInternal( _
 	
 End Function
 
-Function IsCtcpMessage( _
+Private Function IsCtcpMessage( _
 		ByVal pwszMessageText As WString Ptr, _
 		ByVal MessageTextLength As Integer _
 	)As Boolean
@@ -1615,7 +637,7 @@ Function IsCtcpMessage( _
 	
 End Function
 
-Function ProcessPingCommand( _
+Private Function ProcessPingCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1628,8 +650,8 @@ Function ProcessPingCommand( _
 		Dim pServerName As ValueBSTR Ptr = WStringPtrToValueBstrPtr(ServerName)
 		pServerName->Length = bstrIrcMessage.GetTrailingNullChar() - ServerName
 		
-		If CUInt(pIrcClient->Events.lpfnPingEvent) Then
-			pIrcClient->Events.lpfnPingEvent(pIrcClient->lpParameter, pPrefix, *pServerName)
+		If CUInt(pIrcClient->pEvents->lpfnPingEvent) Then
+			pIrcClient->pEvents->lpfnPingEvent(pIrcClient->lpParameter, pPrefix, *pServerName)
 		Else
 			Return IrcClientSendPong(pIrcClient, *pServerName)
 		End If
@@ -1639,7 +661,7 @@ Function ProcessPingCommand( _
 	
 End Function
 
-Function ProcessPrivateMessageCommand( _
+Private Function ProcessPrivateMessageCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1671,40 +693,40 @@ Function ProcessPrivateMessageCommand( _
 					':Angel!wings@irc.org PRIVMSG Qubick :PING 1402355972
 					If pwszStartCtcpParam <> NULL Then
 						Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
-						pCtcpParam->Length = MessageTextLength - PingStringWithSpaceLength
+						pCtcpParam->Length = MessageTextLength - Len(PingStringWithSpace)
 						
-						If CUInt(pIrcClient->Events.lpfnCtcpPingRequestEvent) = 0 Then
+						If CUInt(pIrcClient->pEvents->lpfnCtcpPingRequestEvent) = 0 Then
 							IrcClientSendCtcpPingResponse(pIrcClient, pPrefix->Nick, *pCtcpParam)
 						Else
-							pIrcClient->Events.lpfnCtcpPingRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents->lpfnCtcpPingRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 					End If
 					
 				Case CtcpMessageKind.Action
 					':Angel!wings@irc.org PRIVMSG Qubick :ACTION Any Text
 					If pwszStartCtcpParam <> NULL Then
-						If CUInt(pIrcClient->Events.lpfnCtcpActionEvent) Then
+						If CUInt(pIrcClient->pEvents->lpfnCtcpActionEvent) Then
 							
 							Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
-							pCtcpParam->Length = MessageTextLength - ActionStringWithSpaceLength
+							pCtcpParam->Length = MessageTextLength - Len(ActionStringWithSpace)
 							
-							pIrcClient->Events.lpfnCtcpActionEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents->lpfnCtcpActionEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 					End If
 					
 				Case CtcpMessageKind.UserInfo
 					':Angel!wings@irc.org PRIVMSG Qubick :USERINFO
-					If CUInt(pIrcClient->Events.lpfnCtcpUserInfoRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientUserInfo) <> 0 Then
 							IrcClientSendCtcpUserInfoResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientUserInfo)
 						End If
 					Else
-						pIrcClient->Events.lpfnCtcpUserInfoRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 					
 				Case CtcpMessageKind.Time
 					':Angel!wings@irc.org PRIVMSG Qubick :TIME
-					If CUInt(pIrcClient->Events.lpfnCtcpTimeRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents->lpfnCtcpTimeRequestEvent) = 0 Then
 						' Tue, 15 Nov 1994 12:45:26 GMT
 						Const DateFormatString = "ddd, dd MMM yyyy "
 						Const TimeFormatString = "HH:mm:ss GMT"
@@ -1713,22 +735,22 @@ Function ProcessPrivateMessageCommand( _
 						
 						GetSystemTime(@dtNow)
 						
-						Dim dtBufferLength As Integer = GetDateFormatW(LOCALE_INVARIANT, 0, @dtNow, @DateFormatString, @TimeValue, 31) - 1
-						GetTimeFormatW(LOCALE_INVARIANT, 0, @dtNow, @TimeFormatString, @TimeValue[dtBufferLength], 31 - dtBufferLength)
+						Dim dtBufferLength As Integer = GetDateFormatW(LOCALE_INVARIANT, 0, @dtNow, @WStr(DateFormatString), @TimeValue, 31) - 1
+						GetTimeFormatW(LOCALE_INVARIANT, 0, @dtNow, @WStr(TimeFormatString), @TimeValue[dtBufferLength], 31 - dtBufferLength)
 						
 						Return IrcClientSendCtcpTimeResponse(pIrcClient, pPrefix->Nick, @TimeValue)
 					Else
-						pIrcClient->Events.lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents->lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 					
 				Case CtcpMessageKind.Version
 					':Angel!wings@irc.org PRIVMSG Qubick :VERSION
-					If CUInt(pIrcClient->Events.lpfnCtcpVersionRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents->lpfnCtcpVersionRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientVersion) <> 0 Then
 							Return IrcClientSendCtcpVersionResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientVersion)
 						End If
 					Else
-						pIrcClient->Events.lpfnCtcpVersionRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents->lpfnCtcpVersionRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 					
 			End Select
@@ -1737,12 +759,12 @@ Function ProcessPrivateMessageCommand( _
 			pMessageText->Length = MessageTextLength
 			
 			If lstrcmp(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
-				If CUInt(pIrcClient->Events.lpfnPrivateMessageEvent) Then
-					pIrcClient->Events.lpfnPrivateMessageEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+				If CUInt(pIrcClient->pEvents->lpfnPrivateMessageEvent) Then
+					pIrcClient->pEvents->lpfnPrivateMessageEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 				End If
 			Else
-				If CUInt(pIrcClient->Events.lpfnChannelMessageEvent) Then
-					pIrcClient->Events.lpfnChannelMessageEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pMessageText)
+				If CUInt(pIrcClient->pEvents->lpfnChannelMessageEvent) Then
+					pIrcClient->pEvents->lpfnChannelMessageEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pMessageText)
 				End If
 			End If
 		End If
@@ -1752,7 +774,7 @@ Function ProcessPrivateMessageCommand( _
 	
 End Function
 
-Function ProcessNoticeCommand( _
+Private Function ProcessNoticeCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1784,27 +806,27 @@ Function ProcessNoticeCommand( _
 				Select Case GetCtcpCommand(pwszNoticeText)
 					
 					Case CtcpMessageKind.Ping
-						If CUInt(pIrcClient->Events.lpfnCtcpPingResponseEvent) Then
-							pCtcpParam->Length = NoticeTextLength - PingStringWithSpaceLength
-							pIrcClient->Events.lpfnCtcpPingResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+						If CUInt(pIrcClient->pEvents->lpfnCtcpPingResponseEvent) Then
+							pCtcpParam->Length = NoticeTextLength - Len(PingStringWithSpace)
+							pIrcClient->pEvents->lpfnCtcpPingResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 						
 					Case CtcpMessageKind.UserInfo
-						If CUInt(pIrcClient->Events.lpfnCtcpUserInfoResponseEvent) Then
-							pCtcpParam->Length = NoticeTextLength - UserInfoStringWithSpaceLength
-							pIrcClient->Events.lpfnCtcpUserInfoResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+						If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent) Then
+							pCtcpParam->Length = NoticeTextLength - Len(UserInfoStringWithSpace)
+							pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 						
 					Case CtcpMessageKind.Time
-						If CUInt(pIrcClient->Events.lpfnCtcpTimeResponseEvent) Then
-							pCtcpParam->Length = NoticeTextLength - TimeStringWithSpaceLength
-							pIrcClient->Events.lpfnCtcpTimeResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+						If CUInt(pIrcClient->pEvents->lpfnCtcpTimeResponseEvent) Then
+							pCtcpParam->Length = NoticeTextLength - Len(TimeStringWithSpace)
+							pIrcClient->pEvents->lpfnCtcpTimeResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 						
 					Case CtcpMessageKind.Version
-						If CUInt(pIrcClient->Events.lpfnCtcpVersionResponseEvent) Then
-							pCtcpParam->Length = NoticeTextLength - VersionStringWithSpaceLength
-							pIrcClient->Events.lpfnCtcpVersionResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+						If CUInt(pIrcClient->pEvents->lpfnCtcpVersionResponseEvent) Then
+							pCtcpParam->Length = NoticeTextLength - Len(VersionStringWithSpace)
+							pIrcClient->pEvents->lpfnCtcpVersionResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 						
 				End Select
@@ -1815,12 +837,12 @@ Function ProcessNoticeCommand( _
 			pNoticeText->Length = NoticeTextLength
 			
 			If lstrcmp(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
-				If CUInt(pIrcClient->Events.lpfnNoticeEvent) Then
-					pIrcClient->Events.lpfnNoticeEvent(pIrcClient->lpParameter, pPrefix, *pNoticeText)
+				If CUInt(pIrcClient->pEvents->lpfnNoticeEvent) Then
+					pIrcClient->pEvents->lpfnNoticeEvent(pIrcClient->lpParameter, pPrefix, *pNoticeText)
 				End If
 			Else
-				If CUInt(pIrcClient->Events.lpfnChannelNoticeEvent) Then
-					pIrcClient->Events.lpfnChannelNoticeEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pNoticeText)
+				If CUInt(pIrcClient->pEvents->lpfnChannelNoticeEvent) Then
+					pIrcClient->pEvents->lpfnChannelNoticeEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pNoticeText)
 				End If
 			End If
 		End If
@@ -1829,7 +851,7 @@ Function ProcessNoticeCommand( _
 	
 End Function
 
-Function ProcessJoinCommand( _
+Private Function ProcessJoinCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1837,18 +859,18 @@ Function ProcessJoinCommand( _
 	)As HRESULT
 	
 	':Qubick!~Qubick@irc.org JOIN ##freebasic
-	If CUInt(pIrcClient->Events.lpfnUserJoinedEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnUserJoinedEvent) Then
 		Dim pChannel As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pChannel->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 			
-		pIrcClient->Events.lpfnUserJoinedEvent(pIrcClient->lpParameter, pPrefix, *pChannel)
+		pIrcClient->pEvents->lpfnUserJoinedEvent(pIrcClient->lpParameter, pPrefix, *pChannel)
 	End If
 	
 	Return S_OK
 	
 End Function
 
-Function ProcessQuitCommand( _
+Private Function ProcessQuitCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1856,17 +878,17 @@ Function ProcessQuitCommand( _
 	)As HRESULT
 	
 	' :syrk!kalt@millennium.stealth.net QUIT :Gone to have lunch
-	If CUInt(pIrcClient->Events.lpfnQuitEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnQuitEvent) Then
 		Dim QuitText As WString Ptr = GetIrcMessageText(pwszIrcParam1)
 		
 		If QuitText = 0 Then
 			Dim MessageText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
-			pIrcClient->Events.lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, MessageText)
+			pIrcClient->pEvents->lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, MessageText)
 		Else
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(QuitText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - QuitText
 			
-			pIrcClient->Events.lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents->lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 	
@@ -1874,7 +896,7 @@ Function ProcessQuitCommand( _
 	
 End Function
 
-Function ProcessPartCommand( _
+Private Function ProcessPartCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1882,7 +904,7 @@ Function ProcessPartCommand( _
 	)As HRESULT
 	
 	':WiZ!jto@tolsun.oulu.fi PART #playzone :I lost
-	If CUInt(pIrcClient->Events.lpfnUserLeavedEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnUserLeavedEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		
 		Dim PartText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
@@ -1891,14 +913,14 @@ Function ProcessPartCommand( _
 			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
 			
 			Dim bstrPartText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
-			pIrcClient->Events.lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrPartText)
+			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrPartText)
 		Else
 			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(PartText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - PartText
 			
-			pIrcClient->Events.lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
 		End If
 	End If
 	
@@ -1906,7 +928,7 @@ Function ProcessPartCommand( _
 	
 End Function
 
-Function ProcessErrorCommand( _
+Private Function ProcessErrorCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1918,13 +940,13 @@ Function ProcessErrorCommand( _
 	Dim pwszMessageText As WString Ptr = GetIrcMessageText(pwszIrcParam1)
 	
 	If pwszMessageText <> 0 Then
-		If CUInt(pIrcClient->Events.lpfnServerErrorEvent) Then
+		If CUInt(pIrcClient->pEvents->lpfnServerErrorEvent) Then
 			Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszMessageText
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszMessageText)
 			pMessageText->Length = MessageTextLength
 			
-			pIrcClient->Events.lpfnServerErrorEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents->lpfnServerErrorEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 	
@@ -1932,7 +954,7 @@ Function ProcessErrorCommand( _
 	
 End Function
 
-Function ProcessNickCommand( _
+Private Function ProcessNickCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1940,20 +962,20 @@ Function ProcessNickCommand( _
 	)As HRESULT
 	
 	':WiZ!jto@tolsun.oulu.fi NICK Kilroy
-	If CUInt(pIrcClient->Events.lpfnNickChangedEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnNickChangedEvent) Then
 		Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 		
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = MessageTextLength
 		
-		pIrcClient->Events.lpfnNickChangedEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+		pIrcClient->pEvents->lpfnNickChangedEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 	End If
 	
 	Return S_OK
 	
 End Function
 
-Function ProcessKickCommand( _
+Private Function ProcessKickCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1961,7 +983,7 @@ Function ProcessKickCommand( _
 	)As HRESULT
 	
 	':WiZ!jto@tolsun.oulu.fi KICK #Finnish John
-	If CUInt(pIrcClient->Events.lpfnKickEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnKickEvent) Then
 		Dim pwszIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		
 		If pwszIrcParam2 <> NULL Then
@@ -1971,7 +993,7 @@ Function ProcessKickCommand( _
 			Dim pKickedNick As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 			pKickedNick->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam2
 			
-			pIrcClient->Events.lpfnKickEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pKickedNick)
+			pIrcClient->pEvents->lpfnKickEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pKickedNick)
 		End If
 	End If
 	
@@ -1979,7 +1001,7 @@ Function ProcessKickCommand( _
 	
 End Function
 
-Function ProcessModeCommand( _
+Private Function ProcessModeCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -1988,7 +1010,7 @@ Function ProcessModeCommand( _
 	
 	':ChanServ!ChanServ@services. MODE #freebasic +v ssteiner
 	':FreeBasicCompile MODE FreeBasicCompile :+i
-	If CUInt(pIrcClient->Events.lpfnModeEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnModeEvent) Then
 		' Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		' Dim wStartIrcParam3 As WString Ptr = SeparateWordBySpace(pwszStartIrcParam2)
 		' pIrcClient->Events.lpfnModeEvent(pIrcClient->lpParameter, pPrefix, pwszIrcParam1, pwszStartIrcParam2, wStartIrcParam3)
@@ -1998,7 +1020,7 @@ Function ProcessModeCommand( _
 	
 End Function
 
-Function ProcessTopicCommand( _
+Private Function ProcessTopicCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -2006,7 +1028,7 @@ Function ProcessTopicCommand( _
 	)As HRESULT
 	
 	':WiZ!jto@tolsun.oulu.fi TOPIC #test :New topic
-	If CUInt(pIrcClient->Events.lpfnTopicEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnTopicEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		Dim TopicText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 		
@@ -2014,14 +1036,14 @@ Function ProcessTopicCommand( _
 			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
 			
 			Dim bstrTopicText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
-			pIrcClient->Events.lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrTopicText)
+			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrTopicText)
 		Else
 			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(TopicText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - TopicText
 			
-			pIrcClient->Events.lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
 		End If
 	End If
 	
@@ -2029,7 +1051,7 @@ Function ProcessTopicCommand( _
 	
 End Function
 
-Function ProcessInviteCommand( _
+Private Function ProcessInviteCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -2037,7 +1059,7 @@ Function ProcessInviteCommand( _
 	)As HRESULT
 	
 	':Angel!wings@irc.org INVITE Wiz #Dust
-	If CUInt(pIrcClient->Events.lpfnInviteEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnInviteEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		
 		If pwszStartIrcParam2 <> NULL Then
@@ -2046,7 +1068,7 @@ Function ProcessInviteCommand( _
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartIrcParam2)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszStartIrcParam2
 			
-			pIrcClient->Events.lpfnInviteEvent(pIrcClient->lpParameter, pPrefix, Target, *pMessageText)
+			pIrcClient->pEvents->lpfnInviteEvent(pIrcClient->lpParameter, pPrefix, Target, *pMessageText)
 		End If
 	End If
 	
@@ -2054,7 +1076,7 @@ Function ProcessInviteCommand( _
 	
 End Function
 
-Function ProcessPongCommand( _
+Private Function ProcessPongCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcParam1 As WString Ptr, _
@@ -2064,11 +1086,11 @@ Function ProcessPongCommand( _
 	'PONG :barjavel.freenode.net
 	Dim ServerName As WString Ptr = GetIrcServerName(pwszIrcParam1)
 	If ServerName <> 0 Then
-		If CUInt(pIrcClient->Events.lpfnPongEvent) Then
+		If CUInt(pIrcClient->pEvents->lpfnPongEvent) Then
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(ServerName)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - ServerName
 			
-			pIrcClient->Events.lpfnPongEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents->lpfnPongEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 	
@@ -2076,7 +1098,7 @@ Function ProcessPongCommand( _
 	
 End Function
 
-Function ProcessNumericCommand( _
+Private Function ProcessNumericCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal IrcNumericCommand As Integer, _
@@ -2085,18 +1107,18 @@ Function ProcessNumericCommand( _
 	)As HRESULT
 	
 	':orwell.freenode.net 376 FreeBasicCompile :End of /MOTD command.
-	If CUInt(pIrcClient->Events.lpfnNumericMessageEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnNumericMessageEvent) Then
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 		
-		pIrcClient->Events.lpfnNumericMessageEvent(pIrcClient->lpParameter, pPrefix, IrcNumericCommand, *pMessageText)
+		pIrcClient->pEvents->lpfnNumericMessageEvent(pIrcClient->lpParameter, pPrefix, IrcNumericCommand, *pMessageText)
 	End If
 	
 	Return S_OK
 	
 End Function
 
-Function ProcessServerCommand( _
+Private Function ProcessServerCommand( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pPrefix As IrcPrefix Ptr, _
 		ByVal pwszIrcCommand As WString Ptr, _
@@ -2105,20 +1127,20 @@ Function ProcessServerCommand( _
 	)As HRESULT
 	
 	':orwell.freenode.net 376 FreeBasicCompile :End of /MOTD command.
-	If CUInt(pIrcClient->Events.lpfnServerMessageEvent) Then
+	If CUInt(pIrcClient->pEvents->lpfnServerMessageEvent) Then
 		Dim bstrIrcCommand As ValueBSTR = Type<ValueBSTR>(*pwszIrcCommand)
 		
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 		
-		pIrcClient->Events.lpfnServerMessageEvent(pIrcClient->lpParameter, pPrefix, bstrIrcCommand, *pMessageText)
+		pIrcClient->pEvents->lpfnServerMessageEvent(pIrcClient->lpParameter, pPrefix, bstrIrcCommand, *pMessageText)
 	End If
 	
 	Return S_OK
 	
 End Function
 
-Function ParseData( _
+Private Function ParseData( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByRef bstrIrcMessage As ValueBSTR _
 	)As HRESULT
@@ -2215,6 +1237,632 @@ Function ParseData( _
 	
 End Function
 
+Private Function ResolveHostA( _
+		ByVal Host As PCSTR, _
+		ByVal Port As PCSTR, _
+		ByVal ppAddressList As addrinfo Ptr Ptr _
+	)As HRESULT
+	
+	Dim hints As addrinfo
+	With hints
+		.ai_family = AF_UNSPEC ' AF_INET или AF_INET6
+		.ai_socktype = SOCK_STREAM
+		.ai_protocol = IPPROTO_TCP
+	End With
+	
+	*ppAddressList = NULL
+	
+	If getaddrinfo(Host, Port, @hints, ppAddressList) = 0 Then
+		
+		Return S_OK
+		
+	End If
+	
+	Dim dwError As Long = WSAGetLastError()
+	Return HRESULT_FROM_WIN32(dwError)
+	
+End Function
+
+Public Function ResolveHostW Alias "ResolveHostW"( _
+		ByVal Host As PCWSTR, _
+		ByVal Port As PCWSTR, _
+		ByVal ppAddressList As ADDRINFOW Ptr Ptr _
+	)As HRESULT
+	
+	Dim hints As ADDRINFOW = Any
+	ZeroMemory(@hints, SizeOf(ADDRINFOW))
+	
+	With hints
+		.ai_family = AF_UNSPEC ' AF_INET, AF_INET6
+		.ai_socktype = SOCK_STREAM
+		.ai_protocol = IPPROTO_TCP
+	End With
+	
+	*ppAddressList = NULL
+	
+	Dim resAddrInfo As INT_ = GetAddrInfoW( _
+		Host, _
+		Port, _
+		@hints, _
+		ppAddressList _
+	)
+	If resAddrInfo Then
+		Return HRESULT_FROM_WIN32(resAddrInfo)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function IrcClientStartup( _
+		ByVal pIrcClient As IrcClient Ptr _
+	)As HRESULT
+	
+	Dim objWsaData As WSAData = Any
+	Dim dwError As Long = WSAStartup(MAKEWORD(2, 2), @objWsaData)
+	If dwError <> NO_ERROR Then
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function IrcClientCleanup( _
+		ByVal pIIrcClient As IrcClient Ptr _
+	)As HRESULT
+	
+	Dim dwError As Long = WSACleanup()
+	If dwError <> NO_ERROR Then
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function CreateSocketAndBindA( _
+		ByVal LocalAddress As PCSTR, _
+		ByVal LocalPort As PCSTR, _
+		ByVal pSocket As SOCKET Ptr _
+	)As HRESULT
+	
+	Dim ClientSocket As SOCKET = WSASocketA( _
+		AF_UNSPEC, _
+		SOCK_STREAM, _
+		IPPROTO_TCP, _
+		NULL, _
+		0, _
+		WSA_FLAG_OVERLAPPED _
+	)
+	If ClientSocket = INVALID_SOCKET Then
+		Dim dwError As Long = WSAGetLastError()
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Dim pAddressList As addrinfo Ptr = NULL
+	Dim hr As HRESULT = ResolveHostA(LocalAddress, LocalPort, @pAddressList)
+	If FAILED(hr) Then
+		Dim dwError As Long = WSAGetLastError()
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Dim pAddress As addrinfo Ptr = pAddressList
+	Dim BindResult As Long = 0
+	
+	Dim e As Long = 0
+	
+	If LocalAddress Then
+		Do
+			BindResult = bind( _
+				ClientSocket, _
+				Cast(LPSOCKADDR, pAddress->ai_addr), _
+				pAddress->ai_addrlen _
+			)
+			e = WSAGetLastError()
+			
+			If BindResult = 0 Then
+				Exit Do
+			End If
+			
+			pAddress = pAddress->ai_next
+			
+		Loop Until pAddress = 0
+	End If
+	
+	FreeAddrInfo(pAddressList)
+	
+	If BindResult <> 0 Then
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(e)
+	End If
+	
+	*pSocket = ClientSocket
+	Return S_OK
+	
+End Function
+
+Private Function CreateSocketAndBindW( _
+		ByVal LocalAddress As PCWSTR, _
+		ByVal LocalPort As PCWSTR, _
+		ByVal pSocket As SOCKET Ptr _
+	)As HRESULT
+	
+	Dim pAddressList As addrinfoW Ptr = NULL
+	Dim hrResolve As HRESULT = ResolveHostW( _
+		LocalAddress, _
+		LocalPort, _
+		@pAddressList _
+	)
+	If FAILED(hrResolve) Then
+		*pSocket = INVALID_SOCKET
+		Return hrResolve
+	End If
+	
+	Dim ClientSocket As SOCKET = WSASocketW( _
+		AF_UNSPEC, _
+		SOCK_STREAM, _
+		IPPROTO_TCP, _
+		NULL, _
+		0, _
+		WSA_FLAG_OVERLAPPED _
+	)
+	If ClientSocket = INVALID_SOCKET Then
+		Dim dwError As Long = WSAGetLastError()
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Dim pAddress As addrinfoW Ptr = pAddressList
+	Dim BindResult As Long = 0
+	
+	Dim e As Long = 0
+	
+	If LocalAddress Then
+		Do
+			BindResult = bind( _
+				ClientSocket, _
+				Cast(LPSOCKADDR, pAddress->ai_addr), _
+				pAddress->ai_addrlen _
+			)
+			e = WSAGetLastError()
+			
+			If BindResult = 0 Then
+				Exit Do
+			End If
+			
+			pAddress = pAddress->ai_next
+			
+		Loop Until pAddress = 0
+	End If
+	
+	FreeAddrInfoW(pAddressList)
+	
+	If BindResult <> 0 Then
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(e)
+	End If
+	
+	*pSocket = ClientSocket
+	Return S_OK
+	
+End Function
+
+Private Function CloseSocketConnection( _
+		ByVal ClientSocket As SOCKET _
+	)As HRESULT
+	
+	Dim res As Integer = shutdown(ClientSocket, SD_BOTH)
+	If res <> 0 Then
+		Dim dwError As Long = WSAGetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	res = closesocket(ClientSocket)
+	If res <> 0 Then
+		Dim dwError As Long = WSAGetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function SetReceiveTimeout( _
+		ByVal ClientSocket As SOCKET, _
+		ByVal dwMilliseconds As DWORD _
+	)As HRESULT
+	
+	Dim res As Integer = setsockopt( _
+		ClientSocket, _
+		SOL_SOCKET, _
+		SO_RCVTIMEO, _
+		CPtr(ZString Ptr, @dwMilliseconds), _
+		SizeOf(DWORD) _
+	)
+	If res <> 0 Then
+		Dim dwError As Long = WSAGetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function ConnectToServerA( _
+		ByVal LocalAddress As PCSTR, _
+		ByVal LocalPort As PCSTR, _
+		ByVal RemoteAddress As PCSTR, _
+		ByVal RemotePort As PCSTR, _
+		ByVal pSocket As SOCKET Ptr _
+	)As HRESULT
+	
+	Dim ClientSocket As SOCKET = Any
+	Dim hrBind As HRESULT = CreateSocketAndBindA(LocalAddress, LocalPort, @ClientSocket)
+	If FAILED(hrBind) Then
+		*pSocket = INVALID_SOCKET
+		Return hrBind
+	End If
+	
+	Dim pAddressList As addrinfo Ptr = NULL
+	Dim hrResolve As HRESULT = ResolveHostA(RemoteAddress, RemotePort, @pAddressList)
+	If FAILED(hrResolve) Then
+		closesocket(ClientSocket)
+		*pSocket = INVALID_SOCKET
+		Return hrResolve
+	End If
+	
+	Dim pAddress As addrinfo Ptr = pAddressList
+	Dim ConnectResult As Long = 0
+	
+	Dim e As Long = 0
+	Do
+		ConnectResult = connect( _
+			ClientSocket, _
+			Cast(LPSOCKADDR, pAddress->ai_addr), _
+			pAddress->ai_addrlen _
+		)
+		e = WSAGetLastError()
+		
+		If ConnectResult = 0 Then
+			Exit Do
+		End If
+		
+		pAddress = pAddress->ai_next
+		
+	Loop Until pAddress = 0
+	
+	FreeAddrInfo(pAddressList)
+	
+	If ConnectResult <> 0 Then
+		closesocket(ClientSocket)
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(e)
+	End If
+	
+	*pSocket = ClientSocket
+	Return S_OK
+	
+End Function
+
+Private Function ConnectToServerW( _
+		ByVal LocalAddress As PCWSTR, _
+		ByVal LocalPort As PCWSTR, _
+		ByVal RemoteAddress As PCWSTR, _
+		ByVal RemotePort As PCWSTR, _
+		ByVal pSocket As SOCKET Ptr _
+	)As HRESULT
+	
+	Dim ClientSocket As SOCKET = Any
+	Dim hrBind As HRESULT = CreateSocketAndBindW(LocalAddress, LocalPort, @ClientSocket)
+	If FAILED(hrBind) Then
+		*pSocket = INVALID_SOCKET
+		Return hrBind
+	End If
+	
+	Dim pAddressList As addrinfoW Ptr = NULL
+	Dim hrResolve As HRESULT = ResolveHostW(RemoteAddress, RemotePort, @pAddressList)
+	If FAILED(hrResolve) Then
+		closesocket(ClientSocket)
+		*pSocket = INVALID_SOCKET
+		Return hrResolve
+	End If
+	
+	Dim pAddress As addrinfoW Ptr = pAddressList
+	Dim ConnectResult As Long = 0
+	
+	Dim e As Long = 0
+	Do
+		ConnectResult = connect( _
+			ClientSocket, _
+			Cast(LPSOCKADDR, pAddress->ai_addr), _
+			pAddress->ai_addrlen _
+		)
+		e = WSAGetLastError()
+		
+		If ConnectResult = 0 Then
+			Exit Do
+		End If
+		
+		pAddress = pAddress->ai_next
+		
+	Loop Until pAddress = 0
+	
+	FreeAddrInfoW(pAddressList)
+	
+	If ConnectResult <> 0 Then
+		closesocket(ClientSocket)
+		*pSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(e)
+	End If
+	
+	*pSocket = ClientSocket
+	Return S_OK
+	
+End Function
+
+Private Function FindCrLfA( _
+		ByVal Buffer As ZString Ptr, _
+		ByVal BufferLength As Integer, _
+		ByVal pIndex As Integer Ptr _
+	)As Boolean
+	
+	For i As Integer = 0 To BufferLength - Len(NewLineString)
+		If Buffer[i] = Characters.CarriageReturn AndAlso Buffer[i + 1] = Characters.LineFeed Then
+			*pIndex = i
+			Return True
+		End If
+	Next
+	
+	*pIndex = 0
+	Return False
+	
+End Function
+
+Private Sub ReceiveCompletionRoutine( _
+		ByVal dwError As DWORD, _
+		ByVal cbTransferred As DWORD, _
+		ByVal lpOverlapped As LPWSAOVERLAPPED, _
+		ByVal dwFlags As DWORD _
+	)
+	
+	Dim pContext As RecvClientContext Ptr = CPtr(RecvClientContext Ptr, lpOverlapped)
+	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
+	
+	If dwError <> 0 Then
+		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
+		SetEvent(pIrcClient->hEvent)
+		Exit Sub
+	End If
+	
+	pContext->cbLength += CInt(cbTransferred)
+	
+	Dim CrLfIndex As Integer = Any
+	Dim FindCrLfResult As Boolean = FindCrLfA( _
+		@pContext->Buffer, _
+		pContext->cbLength, _
+		@CrLfIndex _
+	)
+	
+	If FindCrLfResult = False Then
+		
+		If pContext->cbLength >= IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM Then
+			FindCrLfResult = True
+			CrLfIndex = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 2
+			pContext->cbLength = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
+		End If
+		
+	End If
+	
+	Do While FindCrLfResult
+		
+		Scope
+			Dim bstrServerResponse As ValueBSTR = Any
+			' bstrServerResponse.PlaceHolder
+			' bstrServerResponse.BytesCount
+			' bstrServerResponse.WChars
+			Dim ServerResponseLength As Long = MultiByteToWideChar( _
+				pIrcClient->CodePage, _
+				0, _
+				@pContext->Buffer, _
+				CrLfIndex, _
+				@bstrServerResponse.WChars(0), _
+				VALUEBSTR_BUFFER_CAPACITY _
+			)
+			
+			If ServerResponseLength <> 0 Then
+				bstrServerResponse.BytesCount = ServerResponseLength * SizeOf(OLECHAR)
+				bstrServerResponse.WChars(ServerResponseLength) = Characters.NullChar
+				
+				Scope
+					If CUInt(pIrcClient->pEvents->lpfnReceivedRawMessageEvent) Then
+						pContext->Buffer[CrLfIndex + 1] = Characters.NullChar
+						pIrcClient->pEvents->lpfnReceivedRawMessageEvent( _
+							pIrcClient->lpParameter, _
+							@pContext->Buffer, _
+							CrLfIndex + 1 _
+						)
+					End If
+				End Scope
+				
+				Scope
+					Dim hr As HRESULT = ParseData(pIrcClient, bstrServerResponse)
+					If FAILED(hr) Then
+						pIrcClient->ErrorCode = hr
+						SetEvent(pIrcClient->hEvent)
+						Exit Sub
+					End If
+				End Scope
+				
+			End If
+		End Scope
+		
+		Scope
+			Dim NewStartingIndex As Integer = CrLfIndex + 2
+			
+			If NewStartingIndex = pContext->cbLength Then
+				pContext->cbLength = 0
+			Else
+				memmove( _
+					@pContext->Buffer, _
+					@pContext->Buffer[NewStartingIndex], _
+					IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - NewStartingIndex + 1 _
+				)
+				pContext->cbLength -= NewStartingIndex
+			End If
+		End Scope
+		
+		FindCrLfResult = FindCrLfA( _
+			@pContext->Buffer, _
+			pContext->cbLength, _
+			@CrLfIndex _
+		)
+	Loop
+	
+	Dim hr As HRESULT = StartRecvOverlapped(pIrcClient)
+	If FAILED(hr) Then
+		pIrcClient->ErrorCode = hr
+		SetEvent(pIrcClient->hEvent)
+	End If
+	
+End Sub
+
+Private Function StartRecvOverlapped( _
+		ByVal pIrcClient As IrcClient Ptr _
+	)As HRESULT
+	
+	Const WsaBufBuffersCount As DWORD = 1
+	Dim RecvBuf As WSABUF = Any
+	RecvBuf.len = Cast(ULONG, IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - pIrcClient->pRecvContext->cbLength)
+	RecvBuf.buf = @pIrcClient->pRecvContext->Buffer[pIrcClient->pRecvContext->cbLength]
+	
+	ZeroMemory(@pIrcClient->pRecvContext->Overlap, SizeOf(WSAOVERLAPPED))
+	
+	Dim Flags As DWORD = 0
+	Dim res As Long = WSARecv( _
+		pIrcClient->ClientSocket, _
+		@RecvBuf, _
+		WsaBufBuffersCount, _
+		NULL, _
+		@Flags, _
+		@pIrcClient->pRecvContext->Overlap, _
+		@ReceiveCompletionRoutine _
+	)
+	If res <> 0 Then
+		
+		res = WSAGetLastError()
+		If res <> WSA_IO_PENDING Then
+			Return HRESULT_FROM_WIN32(res)
+		End If
+		
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Sub SendCompletionRoutine( _
+		ByVal dwError As DWORD, _
+		ByVal cbTransferred As DWORD, _
+		ByVal lpOverlapped As LPWSAOVERLAPPED, _
+		ByVal dwFlags As DWORD _
+	)
+	
+	Dim pContext As SendClientContext Ptr = CPtr(SendClientContext Ptr, lpOverlapped)
+	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
+	
+	If dwError Then
+		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
+		SetEvent(pIrcClient->hEvent)
+	Else
+		If CUInt(pIrcClient->pEvents->lpfnSendedRawMessageEvent) Then
+			pContext->Buffer[pContext->cbLength] = Characters.NullChar
+			pIrcClient->pEvents->lpfnSendedRawMessageEvent( _
+				pIrcClient->lpParameter, _
+				@pContext->Buffer, _
+				pContext->cbLength _
+			)
+		End If
+	End If
+	
+	Deallocate(pContext)
+	
+End Sub
+
+Private Function StartSendOverlapped( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByRef strData As ValueBSTR _
+	)As HRESULT
+	
+	Dim hr As HRESULT = E_OUTOFMEMORY
+	Dim pContext As SendClientContext Ptr = Allocate(SizeOf(SendClientContext))
+	
+	If pContext Then
+		
+		pContext->cbLength = WideCharToMultiByte( _
+			pIrcClient->CodePage, _
+			0, _
+			@strData.WChars(0), _
+			Len(strData), _
+			@pContext->Buffer, _
+			SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
+			NULL, _
+			NULL _
+		)
+		
+		If pContext->cbLength Then
+			
+			ZeroMemory(@pContext->Overlap, SizeOf(WSAOVERLAPPED))
+			
+			pContext->pIrcClient = pIrcClient
+			
+			Dim CrLf As CrLfA = Any
+			CrLf.Cr = Characters.CarriageReturn
+			CrLf.Lf = Characters.LineFeed
+			
+			Dim SendBuf As SendBuffers = Any
+			SendBuf.Bytes.len = Cast(ULONG, min(pContext->cbLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
+			SendBuf.Bytes.buf = @pContext->Buffer
+			
+			SendBuf.CrLf.len = CrLfALength
+			SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
+			
+			Const dwSendFlags As DWORD = 0
+			Dim res As Long = WSASend( _
+				pIrcClient->ClientSocket, _
+				CPtr(WSABUF Ptr, @SendBuf), _
+				SendBuffersCount, _
+				NULL, _
+				dwSendFlags, _
+				@pContext->Overlap, _
+				@SendCompletionRoutine _
+			)
+			Dim ErrorCode As Long = WSAGetLastError()
+			hr = HRESULT_FROM_WIN32(ErrorCode)
+			
+			If res = 0 Then
+				Return S_OK
+			End If
+			
+			If ErrorCode = WSA_IO_PENDING Then
+				Return S_OK
+			End If
+			
+		End If
+		
+		Dim dwError As DWORD = GetLastError()
+		hr = HRESULT_FROM_WIN32(dwError)
+		
+		Deallocate(pContext)
+		
+	End If
+	
+	Return hr
+	
+End Function
+
 Private Sub MakeConnectionString( _
 		ByRef ConnectionString As ValueBSTR, _
 		ByVal Password As BSTR, _
@@ -2237,22 +1885,22 @@ Private Sub MakeConnectionString( _
 	'<user> <mode> <unused> :<realname>
 	
 	If SysStringLen(Password) <> 0 Then
-		ConnectionString.Append(PassStringWithSpace, PassStringWithSpaceLength)
+		ConnectionString.Append(PassStringWithSpace, Len(PassStringWithSpace))
 		ConnectionString &= Password
-		ConnectionString.Append(NewLineString, NewLineStringLength)
+		ConnectionString.Append(NewLineString, Len(NewLineString))
 	End If
 	
-	ConnectionString.Append(NickStringWithSpace, NickStringWithSpaceLength)
+	ConnectionString.Append(NickStringWithSpace, Len(NickStringWithSpace))
 	ConnectionString &= Nick
-	ConnectionString.Append(NewLineString, NewLineStringLength)
+	ConnectionString.Append(NewLineString, Len(NewLineString))
 	
-	ConnectionString.Append(UserStringWithSpace, UserStringWithSpaceLength)
+	ConnectionString.Append(UserStringWithSpace, Len(UserStringWithSpace))
 	ConnectionString &= User
 	
 	If ModeFlags And IRCPROTOCOL_MODEFLAG_INVISIBLE Then
-		ConnectionString.Append(DefaultBotNameSepInvisible, DefaultBotNameSepInvisibleLength)
+		ConnectionString.Append(DefaultBotNameSepInvisible, Len(DefaultBotNameSepInvisible))
 	Else
-		ConnectionString.Append(DefaultBotNameSepVisible, DefaultBotNameSepVisibleLength)
+		ConnectionString.Append(DefaultBotNameSepVisible, Len(DefaultBotNameSepVisible))
 	End If
 	
 	If SysStringLen(RealName) = 0 Then
@@ -2263,7 +1911,583 @@ Private Sub MakeConnectionString( _
 	
 End Sub
 
-Function IrcClientOpenConnection( _
+Public Function IrcClientChangeNick( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'NICK space <nickname>
+	
+	Dim NickLength As Integer = SysStringLen(Nick)
+	If NickLength <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NickStringWithSpace, Len(NickStringWithSpace))
+		SendString &= Nick
+		
+		pIrcClient->ClientNick = Nick
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientQuitFromServer( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal QuitText As BSTR _
+	)As HRESULT
+	
+	'QUIT [space :<QuitText>]
+	
+	Dim SendString As ValueBSTR = Any
+	
+	If SysStringLen(QuitText) <> 0 Then
+		SendString = Type<ValueBSTR>(QuitStringWithSpaceComma, Len(QuitStringWithSpaceComma))
+		SendString &= QuitText
+	Else
+		SendString = Type<ValueBSTR>(QuitString, Len(QuitString))
+	End If
+	
+	Return StartSendOverlapped(pIrcClient, SendString)
+	
+End Function
+
+Public Function IrcClientSendPong( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Server As BSTR _
+	)As HRESULT
+	
+	'PONG space <Server>
+	If SysStringLen(Server) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PongStringWithSpace, Len(PongStringWithSpace))
+		SendString &= Server
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendPing( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Server As BSTR _
+	)As HRESULT
+	
+	' От сервера:
+	'PING space :<Server>
+	
+	' От клиента:
+	'PING space <Server>
+	
+	If SysStringLen(Server) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PingStringWithSpace, Len(PingStringWithSpace))
+		SendString &= Server
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientJoinChannel( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Channel As BSTR _
+	)As HRESULT
+	
+	'JOIN space <channel>
+	If SysStringLen(Channel) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(JoinStringWithSpace, Len(JoinStringWithSpace))
+		SendString &= Channel
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientPartChannel( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Channel As BSTR, _
+		ByVal PartText As BSTR _
+	)As HRESULT
+	
+	'PART space <channel> [space :<partmessage>]
+	If SysStringLen(Channel) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PartStringWithSpace, Len(PartStringWithSpace))
+		SendString &= Channel
+		
+		If SysStringLen(PartText) <> 0 Then
+			SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+			SendString &= PartText
+		End If
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientRetrieveTopic( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Channel As BSTR _
+	)As HRESULT
+	
+	'TOPIC space <Channel>
+	If SysStringLen(Channel) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(TopicStringWithSpace, Len(TopicStringWithSpace))
+		SendString &= Channel
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSetTopic( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Channel As BSTR, _
+		ByVal Topic As BSTR _
+	)As HRESULT
+	
+	'TOPIC <Channel> :<Topic>
+	
+	If SysStringLen(Channel) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(TopicStringWithSpace, Len(TopicStringWithSpace))
+		SendString &= Channel
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString &= Topic
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendPrivateMessage( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal MessageTarget As BSTR, _
+		ByVal MessageText As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <msgtarget> space : <text to be sent>
+	
+	If SysStringLen(MessageTarget) <> 0 AndAlso SysStringLen(MessageText) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= MessageTarget
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString &= MessageText
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendNotice( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal NoticeTarget As BSTR, _
+		ByVal NoticeText As BSTR _
+	)As HRESULT
+	
+	'NOTICE space <msgtarget> space : <text to be sent>
+	
+	If SysStringLen(NoticeTarget) <> 0 AndAlso SysStringLen(NoticeText) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, Len(NoticeStringWithSpace))
+		SendString &= NoticeTarget
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString &= NoticeText
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendWho( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'WHO <nick>
+	If SysStringLen(Nick) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(WhoStringWithSpace, Len(WhoStringWithSpace))
+		SendString &= Nick
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendWhoIs( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'WHOIS <nick>
+	If SysStringLen(Nick) <> 0 Then
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(WhoIsStringWithSpace, Len(WhoIsStringWithSpace))
+		SendString &= Nick
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpPingRequest( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal TimeStamp As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <Nick> space : SOH PING space<TimeStamp>SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeStamp) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(PingStringWithSpace, Len(PingStringWithSpace))
+		SendString &= TimeStamp
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpTimeRequest( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <Nick> space : SOH TIME SOH
+	
+	If SysStringLen(Nick) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(TimeString, Len(TimeString))
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpUserInfoRequest( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <Nick> space : SOH USERINFO SOH
+	
+	If SysStringLen(Nick) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(UserInfoString, Len(UserInfoString))
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpVersionRequest( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <Nick> space : SOH VERSION SOH
+	
+	If SysStringLen(Nick) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(VersionString, Len(VersionString))
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpAction( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Channel As BSTR, _
+		ByVal MessageText As BSTR _
+	)As HRESULT
+	
+	'PRIVMSG space <Channel> space : SOH ACTION space <MessageText>SOH
+	
+	If SysStringLen(Channel) <> 0 AndAlso SysStringLen(MessageText) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Channel
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(ActionStringWithSpace, Len(ActionStringWithSpace))
+		SendString &= MessageText
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpPingResponse( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal TimeStamp As BSTR _
+	)As HRESULT
+	
+	'NOTICE space <Nick> space : SOH PING space <TimeStamp>SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeStamp) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, Len(NoticeStringWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(PingStringWithSpace, Len(PingStringWithSpace))
+		SendString &= TimeStamp
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpTimeResponse( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal TimeValue As BSTR _
+	)As HRESULT
+	
+	'NOTICE space <Nick> space : SOH TIME space <TimeValue>SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(TimeValue) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, Len(NoticeStringWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(TimeStringWithSpace, Len(TimeStringWithSpace))
+		SendString &= TimeValue
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpUserInfoResponse( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal UserInfo As BSTR _
+	)As HRESULT
+	
+	'NOTICE space <Nick> space : SOH USERINFO space <UserInfo>SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(UserInfo) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, Len(NoticeStringWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(UserInfoStringWithSpace, Len(UserInfoStringWithSpace))
+		SendString &= UserInfo
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendCtcpVersionResponse( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal Version As BSTR _
+	)As HRESULT
+	
+	'NOTICE space <Nick> space : SOH VERSION space <Version>SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(Version) <> 0 Then
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(NoticeStringWithSpace, Len(NoticeStringWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(VersionStringWithSpace, Len(VersionStringWithSpace))
+		SendString &= Version
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendDccSend( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal Nick As BSTR, _
+		ByVal FileName As BSTR, _
+		ByVal IPAddress As BSTR, _
+		ByVal Port As Integer, _
+		ByVal FileLength As ULongInt _
+	)As HRESULT
+	
+	'PRIVMSG space <Nick> space : SOH DCC SEND space <FileName> space <IPAddress> space <Port> [space <FileLength>]SOH
+	
+	If SysStringLen(Nick) <> 0 AndAlso SysStringLen(FileName) <> 0 AndAlso SysStringLen(IPAddress) <> 0 Then
+		
+		Dim wszPort As WString * 100 = Any
+		_ltow(CLng(Port), @wszPort, 10)
+		
+		Dim SendString As ValueBSTR = Type<ValueBSTR>(PrivateMessageWithSpace, Len(PrivateMessageWithSpace))
+		SendString &= Nick
+		SendString.Append(SpaceWithCommaString, Len(SpaceWithCommaString))
+		SendString.Append(Characters.StartOfHeading)
+		SendString.Append(DccSendWithSpace, Len(DccSendWithSpace))
+		SendString &= FileName
+		SendString.Append(Characters.WhiteSpace)
+		SendString &= IPAddress
+		SendString.Append(Characters.WhiteSpace)
+		SendString &= wszPort
+		
+		If FileLength > 0 Then
+			Dim wszFileLength As WString * 64 = Any
+			_i64tow(FileLength, @wszFileLength, 10)
+			
+			SendString.Append(Characters.WhiteSpace)
+			SendString &= wszFileLength
+		End If
+		
+		SendString.Append(Characters.StartOfHeading)
+		
+		Return StartSendOverlapped(pIrcClient, SendString)
+	End If
+	
+	Return S_FALSE
+	
+End Function
+
+Public Function IrcClientSendRawMessage( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal RawText As BSTR _
+	)As HRESULT
+	
+	Dim SendString As ValueBSTR = Type<ValueBSTR>(RawText)
+	
+	Return StartSendOverlapped(pIrcClient, SendString)
+	
+End Function
+
+Public Function CreateIrcClient() As IrcClient Ptr
+	
+	Dim pIrcClient As IrcClient Ptr = Allocate(SizeOf(IrcClient))
+	If pIrcClient = 0 Then
+		Return 0
+	End If
+	
+	pIrcClient->hEvent = CreateEventW(NULL, True, False, NULL)
+	If pIrcClient->hEvent = NULL Then
+		Return 0
+	End If
+	
+	pIrcClient->ClientSocket = INVALID_SOCKET
+	
+	ZeroMemory(@pIrcClient->ZeroEvents, SizeOf(IrcEvents))
+	pIrcClient->pEvents = @pIrcClient->ZeroEvents
+	pIrcClient->lpParameter = 0
+	
+	pIrcClient->pRecvContext = Allocate(SizeOf(RecvClientContext))
+	If pIrcClient->pRecvContext = 0 Then
+		Return 0
+	End If
+	pIrcClient->pRecvContext->pIrcClient = pIrcClient
+	pIrcClient->pRecvContext->cbLength = 0
+	
+	pIrcClient->CodePage = CP_UTF8
+	pIrcClient->ClientNick = Type<ValueBSTR>()
+	pIrcClient->ClientVersion = Type<ValueBSTR>()
+	pIrcClient->ClientUserInfo = Type<ValueBSTR>()
+	pIrcClient->ErrorCode = S_OK
+	pIrcClient->IsInitialized = False
+	
+	Dim hr As HRESULT = IrcClientStartup(pIrcClient)
+	If FAILED(hr) Then
+		Return 0
+	End If
+	
+	Return pIrcClient
+	
+End Function
+
+Public Sub DestroyIrcClient( _
+		ByVal pIrcClient As IrcClient Ptr _
+	)
+	
+	If pIrcClient->ClientSocket <> INVALID_SOCKET Then
+		closesocket(pIrcClient->ClientSocket)
+	End If
+	
+	IrcClientCleanup(pIrcClient)
+	Deallocate(pIrcClient->pRecvContext)
+	CloseHandle(pIrcClient->hEvent)
+	Deallocate(pIrcClient)
+	
+End Sub
+
+Public Sub IrcClientSetCallback( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal pEvents As IrcEvents Ptr, _
+		ByVal lpParameter As LPCLIENTDATA _
+	)
+	
+	pIrcClient->pEvents = pEvents
+	pIrcClient->lpParameter = lpParameter
+	
+End Sub
+
+Public Function IrcClientOpenConnection( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal Server As BSTR, _
 		ByVal Port As Integer, _
@@ -2276,26 +2500,9 @@ Function IrcClientOpenConnection( _
 		ByVal RealName As BSTR _
 	)As HRESULT
 	
-	If pIrcClient->IsInitialized = False Then
-		Dim hr As HRESULT = IrcClientStartup(pIrcClient)
-		If FAILED(hr) Then
-			Return hr
-		End If
-	End If
-	
 	pIrcClient->ErrorCode = S_OK
-	pIrcClient->hHeap = GetProcessHeap()
 	
-	pIrcClient->hEvent = CreateEventW(NULL, True, False, NULL)
-	If pIrcClient->hEvent = NULL Then
-		Return HRESULT_FROM_WIN32(GetLastError())
-	End If
-	
-	If pIrcClient->CodePage = 0 Then
-		pIrcClient->CodePage = CP_UTF8
-	End If
-	
-	pIrcClient->ReceiveBuffer.Length = 0
+	pIrcClient->pRecvContext->cbLength = 0
 	pIrcClient->ClientNick = Nick
 	
 	Dim ConnectionString As ValueBSTR
@@ -2327,7 +2534,7 @@ Function IrcClientOpenConnection( _
 	
 End Function
 
-Sub IrcClientCloseConnection( _
+Public Sub IrcClientCloseConnection( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)
 	
@@ -2335,40 +2542,10 @@ Sub IrcClientCloseConnection( _
 	pIrcClient->ClientSocket = INVALID_SOCKET
 	pIrcClient->ErrorCode = S_OK
 	SetEvent(pIrcClient->hEvent)
-	CloseHandle(pIrcClient->hEvent)
 	
 End Sub
 
-Function IrcClientStartup( _
-		ByVal pIrcClient As IrcClient Ptr _
-	)As HRESULT
-	
-	Dim objWsaData As WSAData = Any
-	Dim dwError As Long = WSAStartup(MAKEWORD(2, 2), @objWsaData)
-	If dwError <> NO_ERROR Then
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-	
-	pIrcClient->IsInitialized = True
-	
-	Return S_OK
-	
-End Function
-
-Function IrcClientCleanup( _
-		ByVal pIIrcClient As IrcClient Ptr _
-	)As HRESULT
-	
-	Dim dwError As Long = WSACleanup()
-	If dwError <> NO_ERROR Then
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-	
-	Return S_OK
-	
-End Function
-
-Function IrcClientStartReceiveDataLoop( _
+Public Function IrcClientMainLoop( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 	
@@ -2394,7 +2571,8 @@ Function IrcClientStartReceiveDataLoop( _
 				Return S_FALSE
 				
 			Case WAIT_FAILED
-				Return HRESULT_FROM_WIN32(GetLastError())
+				Dim dwError As DWORD = GetLastError()
+				Return HRESULT_FROM_WIN32(dwError)
 				
 			Case Else
 				Return E_UNEXPECTED
@@ -2405,7 +2583,7 @@ Function IrcClientStartReceiveDataLoop( _
 	
 End Function
 
-Function IrcClientMsgStartReceiveDataLoop( _
+Public Function IrcClientMsgMainLoop( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 	
@@ -2440,7 +2618,8 @@ Function IrcClientMsgStartReceiveDataLoop( _
 				
 			Case WAIT_FAILED
 				' Событие уничтожено
-				Return HRESULT_FROM_WIN32(GetLastError())
+				Dim dwError As DWORD = GetLastError()
+				Return HRESULT_FROM_WIN32(dwError)
 				
 			Case Else
 				Return E_UNEXPECTED

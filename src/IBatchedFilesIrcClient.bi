@@ -1,47 +1,42 @@
 #ifndef BATCHEDFILES_IRCCLIENT_IBATCHEDFILESIRCCLIENT_BI
 #define BATCHEDFILES_IRCCLIENT_IBATCHEDFILESIRCCLIENT_BI
 
-#ifndef unicode
-#define unicode
-#endif
-#include "windows.bi"
-#include "win\ole2.bi"
+#include once "windows.bi"
+#include once "win\ole2.bi"
 
 Extern IID_IBatchedFilesIrcClient Alias "IID_IBatchedFilesIrcClient" As Const IID
 
 Type IBatchedFilesIrcClient As IBatchedFilesIrcClient_
 
-Type PBATCHEDFILESIRCCLIENT As IBatchedFilesIrcClient Ptr
-
 Type IBatchedFilesIrcClientVtbl
 	
-	Dim QueryInterface As Function( _
+	QueryInterface As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal riid As const IID const Ptr, _
 		ByVal ppvObject As Any Ptr Ptr _
 	)As HRESULT
 	
-	Dim AddRef As Function( _
+	AddRef As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr _
 	)As ULONG
 	
-	Dim Release As Function( _
+	Release As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr _
 	)As ULONG
 	
-	Dim GetTypeInfoCount As Function( _
+	GetTypeInfoCount As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal pctinfo As UINT Ptr _
 	)As HRESULT
 	
-	Dim GetTypeInfo As Function( _
+	GetTypeInfo As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal iTInfo As UINT, _
 		ByVal lcid As LCID, _
 		ByVal ppTInfo As ITypeInfo Ptr Ptr _
 	)As HRESULT
 	
-	Dim GetIDsOfNames As Function( _
+	GetIDsOfNames As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal riid As Const IID Const Ptr, _
 		ByVal rgszNames As LPOLESTR Ptr, _
@@ -50,7 +45,7 @@ Type IBatchedFilesIrcClientVtbl
 		ByVal rgDispId As DISPID Ptr _
 	)As HRESULT
 	
-	Dim Invoke As Function( _
+	Invoke As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal dispIdMember As DISPID, _
 		ByVal riid As Const IID Const Ptr, _
@@ -62,45 +57,37 @@ Type IBatchedFilesIrcClientVtbl
 		ByVal puArgErr As UINT Ptr _
 	)As HRESULT
 	
-	Dim GetClientVersion As Function( _
+	GetClientVersion As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal pClientVersion As BSTR Ptr _
 	)As HRESULT
 	
-	Dim SetClientVersion As Function( _
+	SetClientVersion As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal ClientVersion As BSTR _
 	)As HRESULT
 	
-	Dim GetClientUserInfo As Function( _
+	GetClientUserInfo As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal pClientUserInfo As BSTR Ptr _
 	)As HRESULT
 	
-	Dim SetClientUserInfo As Function( _
+	SetClientUserInfo As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal ClientUserInfo As BSTR _
 	)As HRESULT
 	
-	Dim GetCodePage As Function( _
+	GetCodePage As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal pCodePage As Long Ptr _
 	)As HRESULT
 	
-	Dim SetCodePage As Function( _
+	SetCodePage As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal CodePage As Long _
 	)As HRESULT
 	
-	Dim Startup As Function( _
-		ByVal this As IBatchedFilesIrcClient Ptr _
-	)As HRESULT
-	
-	Dim Cleanup As Function( _
-		ByVal this As IBatchedFilesIrcClient Ptr _
-	)As HRESULT
-	
-	Dim OpenConnection As Function( _
+	OpenConnection As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Server As BSTR, _
 		ByVal Port As Integer, _
@@ -113,163 +100,163 @@ Type IBatchedFilesIrcClientVtbl
 		ByVal RealName As BSTR _
 	)As HRESULT
 	
-	Dim CloseConnection As Function( _
+	CloseConnection As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr _
 	)
 	
-	Dim MsgStartReceiveDataLoop As Function( _
+	MsgStartReceiveDataLoop As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr _
 	)As HRESULT
 	
-	Dim ChangeNick As Function( _
+	ChangeNick As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Nick As BSTR _
 	)As HRESULT
 	
-	Dim QuitFromServer As Function( _
+	QuitFromServer As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal QuitText As BSTR _
 	)As HRESULT
 	
-	Dim JoinChannel As Function( _
+	JoinChannel As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Channel As BSTR _
 	)As HRESULT
 	
-	Dim PartChannel As Function( _
+	PartChannel As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Channel As BSTR, _
 		ByVal MessageText As BSTR _
 	)As HRESULT
 	
-	Dim RetrieveTopic As Function( _
+	RetrieveTopic As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Channel As BSTR _
 	)As HRESULT
 	
-	Dim SetTopic As Function( _
+	SetTopic As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Channel As BSTR, _
 		ByVal TopicText As BSTR _
 	)As HRESULT
 	
-	Dim SendKick As Function( _
+	SendKick As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Channel As BSTR, _
 		ByVal UserName As BSTR, _
 		ByVal MessageText As BSTR _
 	)As HRESULT
 	
-	Dim SendInvite As Function( _
+	SendInvite As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal Channel As BSTR _
 	)As HRESULT
 	
-	Dim SendPrivateMessage As Function( _
+	SendPrivateMessage As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal MessageTarget As BSTR, _
 		ByVal MessageText As BSTR _
 	)As HRESULT
 	
-	Dim SendNotice As Function( _
+	SendNotice As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal NoticeTarget As BSTR, _
 		ByVal NoticeText As BSTR _
 	)As HRESULT
 	
-	Dim SendWho As Function( _
+	SendWho As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR _
 	)As HRESULT
 	
-	Dim SendWhoIs As Function( _
+	SendWhoIs As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR _
 	)As HRESULT
 	
-	Dim SendAdmin As Function( _
+	SendAdmin As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	Dim SendInfo As Function( _
+	SendInfo As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	Dim SendAway As Function( _
+	SendAway As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal MessageText As BSTR _
 	)As HRESULT
 	
-	Dim SendIsON As Function( _
+	SendIsON As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal NickList As BSTR _
 	)As HRESULT
 	
-	Dim SendPing As Function( _
+	SendPing As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	Dim SendPong As Function( _
+	SendPong As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpPingRequest As Function( _
+	SendCtcpPingRequest As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal TimeStamp As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpTimeRequest As Function( _
+	SendCtcpTimeRequest As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpUserInfoRequest As Function( _
+	SendCtcpUserInfoRequest As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpVersionRequest As Function( _
+	SendCtcpVersionRequest As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpAction As Function( _
+	SendCtcpAction As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal MessageText As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpPingResponse As Function( _
+	SendCtcpPingResponse As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal TimeStamp As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpTimeResponse As Function( _
+	SendCtcpTimeResponse As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal TimeValue As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpUserInfoResponse As Function( _
+	SendCtcpUserInfoResponse As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal UserInfo As BSTR _
 	)As HRESULT
 	
-	Dim SendCtcpVersionResponse As Function( _
+	SendCtcpVersionResponse As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal Version As BSTR _
 	)As HRESULT
 	
-	Dim SendDccSend As Function( _
+	SendDccSend As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal UserName As BSTR, _
 		ByVal FileName As BSTR, _
@@ -278,7 +265,7 @@ Type IBatchedFilesIrcClientVtbl
 		ByVal FileLength As ULongInt _
 	)As HRESULT
 	
-	Dim SendRawMessage As Function( _
+	SendRawMessage As Function( _
 		ByVal this As IBatchedFilesIrcClient Ptr, _
 		ByVal RawText As BSTR _
 	)As HRESULT
@@ -286,7 +273,7 @@ Type IBatchedFilesIrcClientVtbl
 End Type
 
 Type IBatchedFilesIrcClient_
-	Dim lpVtbl As IBatchedFilesIrcClientVtbl Ptr
+	lpVtbl As IBatchedFilesIrcClientVtbl Ptr
 End Type
 
 #define IBatchedFilesIrcClient_QueryInterface(this, riid, ppvObject) (this)->lpVtbl->QueryInterface(this, riid, ppvObject)
