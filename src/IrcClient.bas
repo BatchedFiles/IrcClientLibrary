@@ -621,8 +621,10 @@ Private Function IsCtcpMessage( _
 	)As Boolean
 	
 	If MessageTextLength > 2 Then
-		If pwszMessageText[0] = Characters.StartOfHeading Then
-			If pwszMessageText[MessageTextLength - 1] = Characters.StartOfHeading Then
+		Dim FirstChar As Integer = pwszMessageText[0]
+		If FirstChar = Characters.StartOfHeading Then
+			Dim LastChar As Integer = pwszMessageText[MessageTextLength - 1]
+			If LastChar = Characters.StartOfHeading Then
 				Return True
 			End If
 		End If
@@ -675,9 +677,13 @@ Private Function ProcessPrivateMessageCommand( _
 		
 		Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszMessageText
 		
-		If IsCtcpMessage(pwszMessageText, MessageTextLength) Then
-			pwszMessageText += 1
+		Dim resIsCtcp As Boolean = IsCtcpMessage(pwszMessageText, MessageTextLength)
+		
+		If resIsCtcp Then
+			' Truncate last SOH byte
 			pwszMessageText[MessageTextLength - 1] = Characters.NullChar
+			' Truncate first SOH byte
+			pwszMessageText += 1
 			MessageTextLength -= 2
 			
 			Dim pwszStartCtcpParam As WString Ptr = SeparateWordBySpace(pwszMessageText)
@@ -725,15 +731,33 @@ Private Function ProcessPrivateMessageCommand( _
 						' Tue, 15 Nov 1994 12:45:26 GMT
 						Const DateFormatString = "ddd, dd MMM yyyy "
 						Const TimeFormatString = "HH:mm:ss GMT"
+						
 						Dim TimeValue As WString * 64 = Any
 						Dim dtNow As SYSTEMTIME = Any
 						
 						GetSystemTime(@dtNow)
 						
-						Dim dtBufferLength As Integer = GetDateFormatW(LOCALE_INVARIANT, 0, @dtNow, @WStr(DateFormatString), @TimeValue, 31) - 1
-						GetTimeFormatW(LOCALE_INVARIANT, 0, @dtNow, @WStr(TimeFormatString), @TimeValue[dtBufferLength], 31 - dtBufferLength)
+						Dim dtBufferLength As Integer = GetDateFormatW( _
+							LOCALE_INVARIANT, _
+							0, _
+							@dtNow, _
+							@WStr(DateFormatString), _
+							@TimeValue, _
+							31 _
+						) - 1
 						
-						Return IrcClientSendCtcpTimeResponse(pIrcClient, pPrefix->Nick, @TimeValue)
+						GetTimeFormatW( _
+							LOCALE_INVARIANT, _
+							0, _
+							@dtNow, _
+							@WStr(TimeFormatString), _
+							@TimeValue[dtBufferLength], _
+							31 - dtBufferLength _
+						)
+						
+						Dim bstrTimeValue As ValueBSTR = Type<ValueBSTR>(TimeValue, Len(DateFormatString) + Len(TimeFormatString))
+						
+						Return IrcClientSendCtcpTimeResponse(pIrcClient, pPrefix->Nick, bstrTimeValue)
 					Else
 						pIrcClient->pEvents->lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
@@ -788,9 +812,13 @@ Private Function ProcessNoticeCommand( _
 		
 		Dim NoticeTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszNoticeText
 		
-		If IsCtcpMessage(pwszNoticeText, NoticeTextLength) Then
-			pwszNoticeText += 1
+		Dim resIsCtcp As Boolean = IsCtcpMessage(pwszNoticeText, NoticeTextLength)
+		
+		If resIsCtcp Then
+			' Truncate last SOH byte
 			pwszNoticeText[NoticeTextLength - 1] = 0
+			' Truncate first SOH byte
+			pwszNoticeText += 1
 			NoticeTextLength -= 2
 			
 			Dim wStartCtcpParam As WString Ptr = SeparateWordBySpace(pwszNoticeText)
