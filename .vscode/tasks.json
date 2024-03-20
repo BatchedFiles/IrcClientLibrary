@@ -1,0 +1,45 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build simplebot",
+			"type": "process",
+			"command": "C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\fbc64.exe",
+			"args": [
+				"-g",
+				"-x",
+				"simplebot.exe",
+				"-w",
+				"all",
+				"-i", "src",
+				"test\\simplebot.bas",
+				"src\\IrcClient.bas"
+			],
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Build bot",
+			"type": "process",
+			"command": "C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\fbc64.exe",
+			"args": [
+				"-g",
+				"-x",
+				"bot.exe",
+				"-w",
+				"all",
+				"-i", "src",
+				"test\\bot.bas",
+				"src\\IrcClient.bas"
+			],
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
+		}
+	]
+}

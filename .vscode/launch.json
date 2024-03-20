@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Отладка x64",
+            "type": "cppdbg",
+            "request": "launch",
+
+            /* Путь к скомпилированной программе */
+            "program": "${workspaceFolder}/simplebot.exe",
+            /* параметры программы */
+            "args": [],
+
+            "stopAtEntry": true,
+
+            /* текущий каталог */
+            "cwd": "${fileDirname}",
+
+            "externalConsole": false,
+            "MIMode": "gdb",
+
+            /* путь к отладчику GDB, указываем свой */
+            "miDebuggerPath": "C:\\Program Files\\mingw64\\bin\\gdb.exe",
+
+            "setupCommands": [
+                {
+                    "description": "Включить автоматическое форматирование для gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+    ]
+}
