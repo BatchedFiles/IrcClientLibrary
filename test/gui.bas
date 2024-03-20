@@ -97,23 +97,23 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 	Select Case wMsg
 		
 		Case WM_CREATE
-			hWndReceive = CreateWindowEx(0, _
-				@"EDIT", _
-				NULL, _
-				WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
-				0, 0, 640, 480, _
-				hWin, _
-				Cast(HMENU, IDC_RECEIVE), _
-				GetModuleHandle(0), _
-				NULL _
-			)
 			hWndStart = CreateWindowEx(0, _
 				@"BUTTON", _
 				"Start", _
 				WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-				10, 490, 120, 36, _
+				10, 10, 120, 36, _
 				hWin, _
 				Cast(HMENU, IDC_START), _
+				GetModuleHandle(0), _
+				NULL _
+			)
+			hWndReceive = CreateWindowEx(0, _
+				@"EDIT", _
+				NULL, _
+				WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
+				10, 56, 640, 480, _
+				hWin, _
+				Cast(HMENU, IDC_RECEIVE), _
 				GetModuleHandle(0), _
 				NULL _
 			)
