@@ -18,7 +18,7 @@ Dim Shared Server As BSTR
 Dim Shared Nick As BSTR
 Dim Shared Channel As BSTR
 
-Sub AppendLengthTextW( _
+Private Sub AppendLengthTextW( _
 		ByVal hwndControl As HWND, _
 		ByVal lpwszText As LPWSTR, _
 		ByVal Length As Integer _
@@ -44,7 +44,7 @@ Sub AppendLengthTextW( _
 	
 End Sub
 
-Sub OnNumericMessage( _
+Private Sub OnNumericMessage( _
 		ByVal pClientData As LPCLIENTDATA, _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal IrcNumericCommand As Integer, _
@@ -59,7 +59,7 @@ Sub OnNumericMessage( _
 	
 End Sub
 
-Sub OnIrcPrivateMessage( _
+Private Sub OnIrcPrivateMessage( _
 		ByVal pClientData As LPCLIENTDATA, _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
@@ -73,7 +73,7 @@ Sub OnIrcPrivateMessage( _
 	
 End Sub
 
-Sub OnRawMessage( _
+Private Sub OnRawMessage( _
 		ByVal lpParameter As LPCLIENTDATA, _
 		ByVal pBytes As Const UByte Ptr, _
 		ByVal Count As Integer _
@@ -98,7 +98,33 @@ Sub OnRawMessage( _
 	
 End Sub
 
-Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
+Private Sub ClientLoop()
+	Do
+		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pClient)
+		
+		If FAILED(hrLoop) Then
+			IrcClientCloseConnection(pClient)
+			Return
+		Else
+			If hrLoop = S_OK Then
+				Dim m As MSG = Any
+				Do While PeekMessage(@m, NULL, 0, 0, PM_REMOVE) <> 0
+					If m.message = WM_QUIT Then
+						IrcClientQuitFromServerSimple(pClient)
+						Return
+					Else
+						TranslateMessage(@m)
+						DispatchMessage(@m)
+					End If
+				Loop
+			Else
+				Return
+			End If
+		End If
+	Loop
+End Sub
+
+Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
 	
 	Select Case wMsg
 		
@@ -124,7 +150,8 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 				NULL _
 			)
 			
-			Server = SysAllocString(WStr("irc.pouque.net"))
+			' Server = SysAllocString(WStr("irc.pouque.net"))
+			Server = SysAllocString(WStr("irc.quakenet.org"))
 			Nick = SysAllocString(WStr("LeoFitz"))
 			Channel = SysAllocString(WStr("#chlor"))
 			
@@ -157,32 +184,8 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 							
 							IrcClientOpenConnectionSimple1(pClient, Server, Nick)
 							
-							Do
-								Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pClient)
-								
-								If FAILED(hrLoop) Then
-									Print "IrcClientStartReceiveDataLoop", HEX(hrLoop)
-									Print "Закрываю соединение"
-									IrcClientCloseConnection(pClient)
-									Exit Do
-								Else
-									If hrLoop = S_OK Then
-										Dim m As MSG = Any
-										Do While PeekMessage(@m, NULL, 0, 0, PM_REMOVE) <> 0
-											If m.message = WM_QUIT Then
-												IrcClientQuitFromServerSimple(pClient)
-											Else
-												TranslateMessage(@m)
-												DispatchMessage(@m)
-											End If
-										Loop
-									Else
-										Exit Do
-									End If
-								End If
-							Loop
+							ClientLoop()
 							
-							IrcClientQuitFromServerSimple(pClient)
 							IrcClientCloseConnection(pClient)
 							DestroyIrcClient(pClient)
 							
