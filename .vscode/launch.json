@@ -7,7 +7,7 @@
             "request": "launch",
 
             /* Путь к скомпилированной программе */
-            "program": "${workspaceFolder}/simplebot.exe",
+            "program": "${workspaceFolder}/gui.exe",
             /* параметры программы */
             "args": [],
 
