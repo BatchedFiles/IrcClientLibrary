@@ -1,5 +1,7 @@
 #include once "IrcClient.bi"
 #include once "IrcReplies.bi"
+#include once "win\commctrl.bi"
+#include once "win\windowsx.bi"
 
 Const IDC_SEND = 1001
 Const IDC_RECEIVE = 1002
@@ -20,14 +22,22 @@ Sub AppendLengthTextW( _
 		ByVal lpwszText As LPWSTR, _
 		ByVal Length As Integer _
 	)
+	
 	Dim OldTextLength As Long = GetWindowTextLengthW(hwndControl)
 	Dim NewTextLength As Long = OldTextLength + Length
 	
-	Dim lpBuffer As WString Ptr = Allocate((NewTextLength + 1) * SizeOf(WCHAR))
-	If lpBuffer <> NULL Then
+	Dim lpBuffer As WCHAR Ptr = Allocate((NewTextLength + 1) * SizeOf(WCHAR))
+	
+	If lpBuffer Then
 		GetWindowTextW(hwndControl, lpBuffer, NewTextLength)
 		lstrcatW(lpBuffer, lpwszText)
 		SetWindowTextW(hwndControl, lpBuffer)
+		
+		Dim NewTextLength2 As Long = GetWindowTextLengthW(hwndControl)
+		Edit_SetSel(hwndControl, NewTextLength2, NewTextLength2)
+		
+		Edit_ScrollCaret(hwndControl)
+		
 		DeAllocate(lpBuffer)
 	End If
 End Sub
