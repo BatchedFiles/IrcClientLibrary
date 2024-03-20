@@ -7,15 +7,16 @@ Const IDC_SEND = 1001
 Const IDC_RECEIVE = 1002
 Const IDC_START = 1003
 
-Dim Shared Ev As IrcEvents
 Dim Shared hWndSend As HWND
 Dim Shared hWndReceive As HWND
 Dim Shared hWndStart As HWND
+
+Dim Shared Ev As IrcEvents
 Dim Shared pClient As IrcClient Ptr
-Dim Shared Channel As BSTR
-Dim Shared Message As BSTR
+
 Dim Shared Server As BSTR
 Dim Shared Nick As BSTR
+Dim Shared Channel As BSTR
 
 Sub AppendLengthTextW( _
 		ByVal hwndControl As HWND, _
@@ -40,13 +41,7 @@ Sub AppendLengthTextW( _
 		
 		DeAllocate(lpBuffer)
 	End If
-End Sub
-
-Sub AppendTextW( _
-		ByVal hwndControl As HWND, _
-		ByVal lpwszText As LPWSTR _
-	)
-	AppendLengthTextW(hwndControl, lpwszText, lstrlenW(lpwszText))
+	
 End Sub
 
 Sub OnNumericMessage( _
@@ -55,10 +50,13 @@ Sub OnNumericMessage( _
 		ByVal IrcNumericCommand As Integer, _
 		ByVal MessageText As BSTR _
 	)
+	
 	Dim pClient As IrcClient Ptr = pClientData
+	
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
 		IrcClientJoinChannel(pClient, Channel)
 	End If
+	
 End Sub
 
 Sub OnIrcPrivateMessage( _
@@ -66,8 +64,13 @@ Sub OnIrcPrivateMessage( _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
+	
 	Dim pClient As IrcClient Ptr = pClientData
+	
+	Dim Message As BSTR = SysAllocString(WStr("Yes, me too"))
 	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
+	SysFreeString(Message)
+	
 End Sub
 
 Sub OnRawMessage( _
@@ -75,6 +78,7 @@ Sub OnRawMessage( _
 		ByVal pBytes As Const UByte Ptr, _
 		ByVal Count As Integer _
 	)
+	
 	Const NewLine = !"\r\n"
 	
 	Dim buf As WString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1) = Any
@@ -88,8 +92,10 @@ Sub OnRawMessage( _
 	)
 	buf[Length] = 0
 	
-	AppendLengthTextW(hWndReceive, @buf, Length)
-	AppendLengthTextW(hWndReceive, @Wstr(NewLine), Len(NewLine))
+	lstrcatW(@buf, @WStr(NewLine))	
+	
+	AppendLengthTextW(hWndReceive, @buf, Length + Len(NewLine))
+	
 End Sub
 
 Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
@@ -118,10 +124,9 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 				NULL _
 			)
 			
-			Server = SysAllocString("irc.pouque.net")
-			Nick = SysAllocString("LeoFitz")
-			Channel = SysAllocString("#chlor")
-			Message = SysAllocString("Yes, me too")
+			Server = SysAllocString(WStr("irc.pouque.net"))
+			Nick = SysAllocString(WStr("LeoFitz"))
+			Channel = SysAllocString(WStr("#chlor"))
 			
 			Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 			Ev.lpfnNumericMessageEvent = @OnNumericMessage
@@ -130,6 +135,14 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 			
 			pClient = CreateIrcClient()
 			IrcClientSetCallback(pClient, @Ev, pClient)
+			
+			Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
+			IrcClientSetClientVersion(pClient, ClientVersion)
+			SysFreeString(ClientVersion)
+			
+			Dim UserInfo As BSTR = SysAllocString(WStr("Leopold Fitz"))
+			IrcClientSetUserInfo(pClient, UserInfo)
+			SysFreeString(UserInfo)
 			
 		Case WM_COMMAND
 			
