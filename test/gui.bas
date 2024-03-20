@@ -1,18 +1,15 @@
-#ifndef unicode
-#define unicode
-#endif
-
-#include "IrcClient.bi"
-#include "IrcReplies.bi"
+#include once "IrcClient.bi"
+#include once "IrcReplies.bi"
 
 Const IDC_SEND = 1001
 Const IDC_RECEIVE = 1002
 Const IDC_START = 1003
 
+Dim Shared Ev As IrcEvents
 Dim Shared hWndSend As HWND
 Dim Shared hWndReceive As HWND
 Dim Shared hWndStart As HWND
-Dim Shared Client As IrcClient
+Dim Shared pClient As IrcClient Ptr
 Dim Shared Channel As BSTR
 Dim Shared Message As BSTR
 Dim Shared Server As BSTR
@@ -30,7 +27,7 @@ Sub AppendLengthTextW( _
 	If lpBuffer <> NULL Then
 		GetWindowTextW(hwndControl, lpBuffer, NewTextLength)
 		lstrcatW(lpBuffer, lpwszText)
-		SetWindowText(hwndControl, lpBuffer)
+		SetWindowTextW(hwndControl, lpBuffer)
 		DeAllocate(lpBuffer)
 	End If
 End Sub
@@ -43,30 +40,46 @@ Sub AppendTextW( _
 End Sub
 
 Sub OnNumericMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal IrcNumericCommand As Integer, _
 		ByVal MessageText As BSTR _
 	)
+	Dim pClient As IrcClient Ptr = pClientData
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
-		IrcClientJoinChannel(CPtr(IrcClient Ptr, ClientData), Channel)
+		IrcClientJoinChannel(pClient, Channel)
 	End If
 End Sub
 
 Sub OnIrcPrivateMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	IrcClientSendPrivateMessage(CPtr(IrcClient Ptr, ClientData), pIrcPrefix->Nick, Message)
+	Dim pClient As IrcClient Ptr = pClientData
+	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
 End Sub
 
 Sub OnRawMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal IrcMessage As BSTR _
+		ByVal lpParameter As LPCLIENTDATA, _
+		ByVal pBytes As Const UByte Ptr, _
+		ByVal Count As Integer _
 	)
-	AppendLengthTextW(hWndReceive, IrcMessage, SysStringLen(IrcMessage))
-	AppendLengthTextW(hWndReceive, !"\r\n", 2)
+	Const NewLine = !"\r\n"
+	
+	Dim buf As WString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1) = Any
+	Dim Length As Long = MultiByteToWideChar( _
+		CP_UTF8, _
+		0, _
+		pBytes, _
+		Count, _
+		@buf, _
+		IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM _
+	)
+	buf[Length] = 0
+	
+	AppendLengthTextW(hWndReceive, @buf, Length)
+	AppendLengthTextW(hWndReceive, @Wstr(NewLine), Len(NewLine))
 End Sub
 
 Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
@@ -95,16 +108,18 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 				NULL _
 			)
 			
-			Channel = SysAllocString("#freebasic-ru")
-			Message = SysAllocString("Да, я тоже.")
-			Server = SysAllocString("chat.freenode.net")
+			Server = SysAllocString("irc.pouque.net")
 			Nick = SysAllocString("LeoFitz")
+			Channel = SysAllocString("#chlor")
+			Message = SysAllocString("Yes, me too")
 			
-			Client.lpParameter = @Client
-			Client.Events.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
-			Client.Events.lpfnNumericMessageEvent = @OnNumericMessage
-			Client.Events.lpfnReceivedRawMessageEvent = @OnRawMessage
-			Client.Events.lpfnSendedRawMessageEvent = @OnRawMessage
+			Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+			Ev.lpfnNumericMessageEvent = @OnNumericMessage
+			Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
+			Ev.lpfnSendedRawMessageEvent = @OnRawMessage
+			
+			pClient = CreateIrcClient()
+			IrcClientSetCallback(pClient, @Ev, pClient)
 			
 		Case WM_COMMAND
 			
@@ -117,31 +132,22 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 						Case IDC_START
 							EnableWindow(hWndStart, 0)
 							
-							Dim hr As HRESULT = IrcClientStartup(@Client)
-							If FAILED(hr) Then
-								Print "IrcClientStartup FAILED", HEX(hr)
-							End If
-							
-							hr = IrcClientOpenConnectionSimple1(@Client, Server, Nick)
-							If FAILED(hr) Then
-								Print "IrcClientOpenConnectionSimple1 FAILED", HEX(hr)
-							End If
+							IrcClientOpenConnectionSimple1(pClient, Server, Nick)
 							
 							Do
-								hr = IrcClientMsgStartReceiveDataLoop(@Client)
+								Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pClient)
 								
-								If FAILED(hr) Then
-									Print "IrcClientStartReceiveDataLoop", HEX(hr)
+								If FAILED(hrLoop) Then
+									Print "IrcClientStartReceiveDataLoop", HEX(hrLoop)
 									Print "Закрываю соединение"
-									IrcClientCloseConnection(@Client)
-									IrcClientCleanup(@Client)
+									IrcClientCloseConnection(pClient)
 									Exit Do
 								Else
-									If hr = S_OK Then
+									If hrLoop = S_OK Then
 										Dim m As MSG = Any
 										Do While PeekMessage(@m, NULL, 0, 0, PM_REMOVE) <> 0
 											If m.message = WM_QUIT Then
-												IrcClientQuitFromServerSimple(@Client)
+												IrcClientQuitFromServerSimple(pClient)
 											Else
 												TranslateMessage(@m)
 												DispatchMessage(@m)
@@ -153,9 +159,10 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 								End If
 							Loop
 							
-							IrcClientQuitFromServerSimple(@Client)
-							IrcClientCloseConnection(@Client)
-							IrcClientCleanup(@Client)
+							IrcClientQuitFromServerSimple(pClient)
+							IrcClientCloseConnection(pClient)
+							DestroyIrcClient(pClient)
+							
 							PostQuitMessage(0)
 							
 					End Select
@@ -174,13 +181,12 @@ Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As
 	
 End Function
 
-Function WinMain( _
+Private Function tWinMain( _
 		Byval hInst As HINSTANCE, _
 		ByVal hPrevInstance As HINSTANCE, _
-		ByVal Args As WString Ptr Ptr, _
-		ByVal ArgsCount As Integer, _
-		ByVal iCmdShow As Integer _
-	) As Integer
+		ByVal lpCmdLine As LPTSTR, _
+		ByVal iCmdShow As Long _
+	)As Integer
 	
 	Const NineWindowTitle = "IrcClient"
 	Const MainWindowClassName = "IrcClient"
@@ -196,7 +202,7 @@ Function WinMain( _
 		.hIcon         = NULL
 		.hCursor       = LoadCursor(NULL, IDC_ARROW)
 		.hbrBackground = Cast(HBRUSH, COLOR_BTNFACE + 1)
-		.lpszMenuName  = Cast(WString Ptr, NULL)
+		.lpszMenuName  = Cast(TCHAR Ptr, NULL)
 		.lpszClassName = @MainWindowClassName
 		.hIconSm       = NULL
 	End With
@@ -242,8 +248,5 @@ Function WinMain( _
 	
 End Function
 
-Dim ArgsCount As DWORD = Any
-Dim Args As WString Ptr Ptr = CommandLineToArgvW(GetCommandLine(), @ArgsCount)
-Dim WinMainResult As Integer = WinMain(GetModuleHandle(0), NULL, Args, CInt(ArgsCount), SW_SHOW)
-LocalFree(Args)
+Dim WinMainResult As Integer = tWinMain(GetModuleHandle(0), NULL, NULL, SW_SHOW)
 End(WinMainResult)

@@ -1,20 +1,31 @@
-#include "IrcClient.bi"
-
-Dim Shared Client As IrcClient
+#include once "IrcClient.bi"
 
 Sub OnIrcPrivateMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	IrcClientSendPrivateMessage(@Client, pIrcPrefix->Nick, SysAllocString("Да, я тоже."))
+	Dim pClient As IrcClient Ptr = pClientData
+	IrcClientSendPrivateMessage( _
+		pClient, _
+		pIrcPrefix->Nick, _
+		SysAllocString("Yes, me too") _
+	)
 End Sub
 
-Client.Events.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+Dim Ev As IrcEvents
+Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 
-IrcClientOpenConnectionSimple1(@Client, SysAllocString("chat.freenode.net"), SysAllocString("LeoFitz"))
-IrcClientJoinChannel(@Client, SysAllocString("#freebasic-ru"))
+Dim pClient As IrcClient Ptr = CreateIrcClient()
+IrcClientSetCallback(pClient, @Ev, pClient)
 
-IrcClientStartReceiveDataLoop(@Client)
+IrcClientOpenConnectionSimple1( _
+	pClient, _
+	SysAllocString("irc.pouque.net"), _
+	SysAllocString("LeoFitz") _
+)
+IrcClientJoinChannel(pClient, SysAllocString("#chlor"))
 
-IrcClientCloseConnection(@Client)
+IrcClientMainLoop(pClient)
+
+IrcClientCloseConnection(pClient)

@@ -1,65 +1,66 @@
-#include "IrcClient.bi"
-#include "IrcReplies.bi"
+#include once "IrcClient.bi"
+#include once "IrcReplies.bi"
 
 Dim Shared Channel As BSTR
 Dim Shared Message As BSTR
 Dim Shared Server As BSTR
 Dim Shared Nick As BSTR
 
-Sub OnNumericMessageEvent( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+Sub OnNumericMessage( _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal IrcNumericCommand As Integer, _
 		ByVal MessageText As BSTR _
 	)
+	Dim pClient As IrcClient Ptr = pClientData
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
-		IrcClientJoinChannel(CPtr(IrcClient Ptr, ClientData), Channel)
+		IrcClientJoinChannel(pClient, Channel)
 	End If
 End Sub
 
 Sub OnIrcPrivateMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	IrcClientSendPrivateMessage(CPtr(IrcClient Ptr, ClientData), pIrcPrefix->Nick, Message)
+	Dim pClient As IrcClient Ptr = pClientData
+	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
 End Sub
 
 Sub OnRawMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal IrcMessage As BSTR _
+		ByVal lpParameter As LPCLIENTDATA, _
+		ByVal pBytes As Const UByte Ptr, _
+		ByVal Count As Integer _
 	)
-	Print *Cast(WString Ptr, IrcMessage)
+	Print *Cast(ZString Ptr, pBytes)
 End Sub
 
-Channel = SysAllocString("#freebasic-ru")
-Message = SysAllocString("Да, я тоже.")
-Server = SysAllocString("chat.freenode.net")
+' Server = SysAllocString("chat.freenode.net")
+' Nick = SysAllocString("LeoFitz")
+' Channel = SysAllocString("#freebasic-ru")
+' Message = SysAllocString("Yes, me too")
+Server = SysAllocString("irc.pouque.net")
 Nick = SysAllocString("LeoFitz")
+Channel = SysAllocString("#chlor")
+Message = SysAllocString("Yes, me too")
 
-Dim Client As IrcClient
-Client.lpParameter = @Client
-Client.Events.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
-Client.Events.lpfnNumericMessageEvent = @OnNumericMessageEvent
-Client.Events.lpfnReceivedRawMessageEvent = @OnRawMessage
-Client.Events.lpfnSendedRawMessageEvent = @OnRawMessage
+Dim Ev As IrcEvents
+Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+Ev.lpfnNumericMessageEvent = @OnNumericMessage
+Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
+Ev.lpfnSendedRawMessageEvent = @OnRawMessage
 
-Dim hr As HRESULT = IrcClientStartup(@Client)
-If FAILED(hr) Then
-	Print "IrcClientStartup FAILED", HEX(hr)
+Dim pClient As IrcClient Ptr = CreateIrcClient()
+IrcClientSetCallback(pClient, @Ev, pClient)
+
+Dim hrConnection As HRESULT = IrcClientOpenConnectionSimple1(pClient, Server, Nick)
+If FAILED(hrConnection) Then
+	Print "OpenConnection FAILED", HEX(hrConnection)
 	End(1)
 End If
 
-hr = IrcClientOpenConnectionSimple1(@Client, Server, Nick)
-If FAILED(hr) Then
-	Print "IrcClientOpenConnectionSimple1 FAILED", HEX(hr)
-	End(1)
-End If
+IrcClientMainLoop(pClient)
 
-hr = IrcClientStartReceiveDataLoop(@Client)
-Print "IrcClientStartReceiveDataLoop", HEX(hr)
+IrcClientCloseConnection(pClient)
 
-Print "Закрываю соединение"
-
-IrcClientCloseConnection(@Client)
-IrcClientCleanup(@Client)
+DestroyIrcClient(pClient)
