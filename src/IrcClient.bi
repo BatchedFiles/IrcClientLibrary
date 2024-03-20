@@ -4,10 +4,10 @@
 #include once "windows.bi"
 #include once "win\ole2.bi"
 
-Const IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM As Integer = 512
-Const IRCPROTOCOL_NICKLENGTHMAXIMUM As Integer = 16
-Const IRCPROTOCOL_CHANNELNAMELENGTHMAXIMUM As Integer = 50
-Const IRCPROTOCOL_DEFAULTPORT As Integer = 6667
+Const IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM = 512
+Const IRCPROTOCOL_NICKLENGTHMAXIMUM = 16
+Const IRCPROTOCOL_CHANNELNAMELENGTHMAXIMUM = 50
+Const IRCPROTOCOL_DEFAULTPORT = 6667
 
 Const IRCPROTOCOL_MODEFLAG_WALLOPS As Long =       &b0000000000000100 ' w
 Const IRCPROTOCOL_MODEFLAG_INVISIBLE As Long =     &b0000000000001000 ' i
@@ -89,12 +89,78 @@ Type IrcClient As _IrcClient
 
 #define IrcClientOpenConnectionSimple1(pIrcClient, Server, Nick) IrcClientOpenConnection((pIrcClient), (Server), IRCPROTOCOL_DEFAULTPORT, NULL, 0, NULL, (Nick), (Nick), IRCPROTOCOL_MODEFLAG_INVISIBLE, (Nick))
 #define IrcClientOpenConnectionSimple2(pIrcClient, Server, Port, Nick, User, RealName) IrcClientOpenConnection((pIrcClient), (Server), (Port), @DefaultLocalServer, DefaultLocalPort, NULL, (Nick), (User), IRCPROTOCOL_MODEFLAG_INVISIBLE, (RealName))
+#define IrcClientQuitFromServerSimple(pIrcClient) IrcClientQuitFromServer((pIrcClient), NULL)
+#define IrcClientPartChannelSimple(pIrcClient) IrcClientPartChannel((pIrcClient), NULL)
+#define IrcClientSendKickSimple(pIrcClient, Channel, UserName) IrcClientSendKick((pIrcClient), (Channel), (UserName), NULL)
+#define IrcClientSendAdminSimple(pIrcClient) IrcClientSendAdmin((pIrcClient), NULL)
+#define IrcClientSendInfoSimple(pIrcClient) IrcClientSendInfo((pIrcClient), NULL)
+#define IrcClientSendAwaySimple(pIrcClient) IrcClientSendAway((pIrcClient), NULL)
+#define IrcClientSendDccSendSimple(pIrcClient, UserName, FileName, IPAddress, Port) IrcClientSendDccSend((pIrcClient), (UserName), (FileName), (IPAddress), (Port), 0)
+
+' Create / destroy
 
 Declare Function CreateIrcClient() As IrcClient Ptr
 
 Declare Sub DestroyIrcClient( _
 	ByVal pIrcClient As IrcClient Ptr _
 )
+
+' Callbacks
+
+Declare Function IrcClientSetCallback( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pEvents As IrcEvents Ptr, _
+	ByVal lpParameter As LPCLIENTDATA _
+)As HRESULT
+
+' Properties
+
+Declare Function IrcClientGetCodePage( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pCodePage As Integer Ptr _
+)As HRESULT
+
+Declare Function IrcClientSetCodePage( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal CodePage As Integer _
+)As HRESULT
+
+Declare Function IrcClientGetClientVersion( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal ppVersion As BSTR Ptr _
+)As HRESULT
+
+Declare Function IrcClientSetClientVersion( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pVersion As BSTR _
+)As HRESULT
+
+Declare Function IrcClientGetUserInfo( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal ppUserInfo As BSTR Ptr _
+)As HRESULT
+
+Declare Function IrcClientSetUserInfo( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pUserInfo As BSTR _
+)As HRESULT
+
+Declare Function IrcClientGetErrorCode( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pCode As HRESULT Ptr _
+)As HRESULT
+
+' Main loop
+
+Declare Function IrcClientMainLoop( _
+	ByVal pIrcClient As IrcClient Ptr _
+)As HRESULT
+
+Declare Function IrcClientMsgMainLoop( _
+	ByVal pIrcClient As IrcClient Ptr _
+)As HRESULT
+
+' Connect to server
 
 Declare Function IrcClientOpenConnection( _
 	ByVal pIrcClient As IrcClient Ptr, _
@@ -109,23 +175,9 @@ Declare Function IrcClientOpenConnection( _
 	ByVal RealName As BSTR _
 )As HRESULT
 
-Declare Sub IrcClientSetCallback( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal pEvents As IrcEvents Ptr, _
-	ByVal lpParameter As LPCLIENTDATA _
-)
-
 Declare Sub IrcClientCloseConnection( _
 	ByVal pIrcClient As IrcClient Ptr _
 )
-
-Declare Function IrcClientMainLoop( _
-	ByVal pIrcClient As IrcClient Ptr _
-)As HRESULT
-
-Declare Function IrcClientMsgMainLoop( _
-	ByVal pIrcClient As IrcClient Ptr _
-)As HRESULT
 
 ' Connection Registration
 ' PASS NICK USER OPER MODE SERVICE QUIT SQUIT
@@ -134,8 +186,6 @@ Declare Function IrcClientChangeNick( _
 	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Nick As BSTR _
 )As HRESULT
-
-#define IrcClientQuitFromServerSimple(pIrcClient) IrcClientQuitFromServer((pIrcClient), NULL)
 
 Declare Function IrcClientQuitFromServer( _
 	ByVal pIrcClient As IrcClient Ptr, _
@@ -149,8 +199,6 @@ Declare Function IrcClientJoinChannel( _
 	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Channel As BSTR _
 )As HRESULT
-
-#define IrcClientPartChannelSimple(pIrcClient) IrcClientPartChannel((pIrcClient), NULL)
 
 Declare Function IrcClientPartChannel( _
 	ByVal pIrcClient As IrcClient Ptr, _
@@ -168,8 +216,6 @@ Declare Function IrcClientSetTopic( _
 	ByVal Channel As BSTR, _
 	ByVal TopicText As BSTR _
 )As HRESULT
-
-#define IrcClientSendKickSimple(pIrcClient, Channel, UserName) IrcClientSendKick((pIrcClient), (Channel), (UserName), NULL)
 
 Declare Function IrcClientSendKick( _
 	ByVal pIrcClient As IrcClient Ptr, _
@@ -215,21 +261,15 @@ Declare Function IrcClientSendWhoIs( _
 ' Server queries and commands
 ' MOTD LUSERS VERSION STATS LINKS TIME CONNECT TRACE ADMIN INFO
 
-#define IrcClientSendAdminSimple(pIrcClient) IrcClientSendAdmin((pIrcClient), NULL)
-
 Declare Function IrcClientSendAdmin( _
 	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Server As BSTR _
 )As HRESULT
 
-#define IrcClientSendInfoSimple(pIrcClient) IrcClientSendInfo((pIrcClient), NULL)
-
 Declare Function IrcClientSendInfo( _
 	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Server As BSTR _
 )As HRESULT
-
-#define IrcClientSendAwaySimple(pIrcClient) IrcClientSendAway((pIrcClient), NULL)
 
 Declare Function IrcClientSendAway( _
 	ByVal pIrcClient As IrcClient Ptr, _
@@ -306,8 +346,6 @@ Declare Function IrcClientSendCtcpVersionResponse( _
 	ByVal UserName As BSTR, _
 	ByVal Version As BSTR _
 )As HRESULT
-
-#define IrcClientSendDccSendSimple(pIrcClient, UserName, FileName, IPAddress, Port) IrcClientSendDccSend((pIrcClient), (UserName), (FileName), (IPAddress), (Port), 0)
 
 Declare Function IrcClientSendDccSend( _
 	ByVal pIrcClient As IrcClient Ptr, _

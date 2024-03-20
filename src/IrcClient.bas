@@ -303,8 +303,6 @@ Private Operator ValueBSTR.&=(ByRef rhs As Const WString)
 	
 End Operator
 
-' Declare Operator &=(ByRef rhs As Const ValueBSTR)
-
 Private Operator ValueBSTR.&=(ByRef rhs As Const BSTR)
 	Append(*CPtr(WString Ptr, rhs), SysStringLen(rhs))
 End Operator
@@ -314,9 +312,6 @@ Private Operator ValueBSTR.+=(ByRef rhs As Const WString)
 	Append(rhs, lstrlenW(rhs))
 	
 End Operator
-
-' Declare Operator +=(ByRef rhs As Const ValueBSTR)
-' Declare Operator +=(ByRef rhs As Const BSTR)
 
 Private Sub ValueBSTR.Append(ByVal Ch As Const OLECHAR)
 	Dim meLength As Integer = Len(this)
@@ -1263,7 +1258,7 @@ Private Function ResolveHostA( _
 	
 End Function
 
-Public Function ResolveHostW Alias "ResolveHostW"( _
+Private Function ResolveHostW( _
 		ByVal Host As PCWSTR, _
 		ByVal Port As PCWSTR, _
 		ByVal ppAddressList As ADDRINFOW Ptr Ptr _
@@ -2476,16 +2471,107 @@ Public Sub DestroyIrcClient( _
 	
 End Sub
 
-Public Sub IrcClientSetCallback( _
+Public Function IrcClientSetCallback( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal pEvents As IrcEvents Ptr, _
 		ByVal lpParameter As LPCLIENTDATA _
-	)
+	)As HRESULT
 	
 	pIrcClient->pEvents = pEvents
 	pIrcClient->lpParameter = lpParameter
 	
-End Sub
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientGetCodePage( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal pCodePage As Integer Ptr _
+	)As HRESULT
+	
+	*pCodePage = pIrcClient->CodePage
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientSetCodePage( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal CodePage As Integer _
+	)As HRESULT
+	
+	pIrcClient->CodePage = CodePage
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientGetClientVersion( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal ppVersion As BSTR Ptr _
+	)As HRESULT
+	
+	Dim Length As UINT = SysStringLen(@pIrcClient->ClientVersion.WChars(0))
+	Dim pbstr As BSTR = SysAllocStringLen( _
+		@pIrcClient->ClientVersion.WChars(0), _
+		Length _
+	)
+	
+	*ppVersion = pbstr
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientSetClientVersion( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal pVersion As BSTR _
+	)As HRESULT
+	
+	pIrcClient->ClientVersion = Type<ValueBSTR>(pVersion)
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientGetUserInfo( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal ppUserInfo As BSTR Ptr _
+	)As HRESULT
+	
+	Dim Length As UINT = SysStringLen(@pIrcClient->ClientUserInfo.WChars(0))
+	Dim pbstr As BSTR = SysAllocStringLen( _
+		@pIrcClient->ClientUserInfo.WChars(0), _
+		Length _
+	)
+	
+	*ppUserInfo = pbstr
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientSetUserInfo( _
+	ByVal pIrcClient As IrcClient Ptr, _
+		ByVal pUserInfo As BSTR _
+	)As HRESULT
+	
+	pIrcClient->ClientUserInfo = Type<ValueBSTR>(pUserInfo)
+	
+	Return S_OK
+	
+End Function
+
+Public Function IrcClientGetErrorCode( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByVal pCode As HRESULT Ptr _
+	)As HRESULT
+	
+	*pCode = pIrcClient->ErrorCode
+	
+	Return S_OK
+	
+End Function
 
 Public Function IrcClientOpenConnection( _
 		ByVal pIrcClient As IrcClient Ptr, _
