@@ -6,15 +6,18 @@
 Const IDC_SEND = 1001
 Const IDC_RECEIVE = 1002
 Const IDC_START = 1003
+Const IDC_STOP = 1004
 
 Dim Shared hWndSend As HWND
 Dim Shared hWndReceive As HWND
 Dim Shared hWndStart As HWND
+Dim Shared hWndStop As HWND
 
 Dim Shared Ev As IrcEvents
 Dim Shared pClient As IrcClient Ptr
 
 Dim Shared Server As BSTR
+Dim Shared Port As BSTR
 Dim Shared Nick As BSTR
 Dim Shared Channel As BSTR
 
@@ -98,30 +101,72 @@ Private Sub OnRawMessage( _
 	
 End Sub
 
-Private Sub ClientLoop()
+Private Function MessageLoop( _
+		ByVal hWin As HWND _
+	)As Integer
+	
 	Do
 		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pClient)
 		
 		If FAILED(hrLoop) Then
 			IrcClientCloseConnection(pClient)
-			Return
-		Else
-			If hrLoop = S_OK Then
-				Dim m As MSG = Any
-				Do While PeekMessage(@m, NULL, 0, 0, PM_REMOVE) <> 0
-					If m.message = WM_QUIT Then
-						IrcClientQuitFromServerSimple(pClient)
-						Return
-					Else
-						TranslateMessage(@m)
-						DispatchMessage(@m)
+			Return 1
+		End If
+		
+		Select Case hrLoop
+			Case S_OK
+				Do
+					Dim wMsg As MSG = Any
+					Dim resGetMessage As BOOL = PeekMessage( _
+						@wMsg, _
+						NULL, _
+						0, _
+						0, _
+						PM_REMOVE _
+					)
+					If resGetMessage = 0 Then
+						Exit Do
+					End If
+					
+					If wMsg.message = WM_QUIT Then
+						PostQuitMessage(wMsg.wParam)
+						Return 0
+					End If
+					
+					Dim resDialogMessage As BOOL = IsDialogMessage( _
+						hWin, _
+						@wMsg _
+					)
+					
+					If resDialogMessage = 0 Then
+						TranslateMessage(@wMsg)
+						DispatchMessage(@wMsg)
 					End If
 				Loop
-			Else
-				Return
-			End If
-		End If
+				
+			Case Else ' S_FALSE
+				IrcClientCloseConnection(pClient)
+				Return 0
+		End Select
 	Loop
+	
+End Function
+
+Private Sub DisableWindow( _
+		ByVal hWin As HWND, _
+		ByVal hwndControl As HWND _
+	)
+	
+	' Disabling a window correctly
+	Dim hwndFocus As HWND = GetFocus()
+	
+	If hwndFocus = hwndControl Then
+		' giving focus to another window
+		SendMessage(hWin, WM_NEXTDLGCTL, 0, 0)
+	End If
+	
+	EnableWindow(hwndControl, 0)
+	
 End Sub
 
 Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
@@ -130,7 +175,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		
 		Case WM_CREATE
 			hWndStart = CreateWindowEx(0, _
-				@"BUTTON", _
+				WC_BUTTON, _
 				"Start", _
 				WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
 				10, 10, 120, 36, _
@@ -139,8 +184,18 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 				GetModuleHandle(0), _
 				NULL _
 			)
+			hWndStop = CreateWindowEx(0, _
+				WC_BUTTON, _
+				"Stop", _
+				WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+				10 + 120 + 10, 10, 120, 36, _
+				hWin, _
+				Cast(HMENU, IDC_STOP), _
+				GetModuleHandle(0), _
+				NULL _
+			)
 			hWndReceive = CreateWindowEx(0, _
-				@"EDIT", _
+				WC_EDIT, _
 				NULL, _
 				WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
 				10, 56, 640, 480, _
@@ -150,8 +205,19 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 				NULL _
 			)
 			
-			' Server = SysAllocString(WStr("irc.pouque.net"))
-			Server = SysAllocString(WStr("irc.quakenet.org"))
+			Server = SysAllocString(WStr("irc.pouque.net"))
+			Port = SysAllocString(WStr("6667"))
+			
+			' Server = SysAllocString(WStr("irc.quakenet.org"))
+			' Port = SysAllocString(WStr("6667"))
+			
+			' Server = SysAllocString(WStr("irc.libera.chat"))
+			' Port = SysAllocString(WStr("6667"))
+			
+			'сервер irc.tambov.ru Ч порты Ч 7770; SSL 9996
+			' Server = SysAllocString(WStr("irc.tambov.ru"))
+			' Port = SysAllocString(WStr("7770"))
+			
 			Nick = SysAllocString(WStr("LeoFitz"))
 			Channel = SysAllocString(WStr("#chlor"))
 			
@@ -180,22 +246,34 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 					Select Case LoWord(wParam)
 						
 						Case IDC_START
-							EnableWindow(hWndStart, 0)
+							Dim hrOpen As HRESULT = IrcClientOpenConnectionSimple2( _
+								pClient, _
+								Server, _
+								Port, _
+								Nick _
+							)
 							
-							IrcClientOpenConnectionSimple1(pClient, Server, Nick)
+							If SUCCEEDED(hrOpen) Then
+								DisableWindow(hWin, hWndStart)
+								EnableWindow(hwndStop, 1)
+								
+								MessageLoop(hWin)
+								
+								EnableWindow(hWndStart, 1)
+								DisableWindow(hWin, hwndStop)
+							End If
 							
-							ClientLoop()
-							
-							IrcClientCloseConnection(pClient)
-							DestroyIrcClient(pClient)
-							
-							PostQuitMessage(0)
+						Case IDC_STOP
+							IrcClientQuitFromServerSimple(pClient)
+							EnableWindow(hWndStart, 1)
+							DisableWindow(hWin, hwndStop)
 							
 					End Select
 					
 			End Select
 			
 		Case WM_DESTROY
+			DestroyIrcClient(pClient)
 			PostQuitMessage(0)
 			
 		Case Else
@@ -237,7 +315,7 @@ Private Function tWinMain( _
 		Return 1
 	End If
 	
-	Dim hWndMain As HWND = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, _
+	Dim hWin As HWND = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, _
 		@MainWindowClassName, _
 		@NineWindowTitle, _
 		WS_OVERLAPPEDWINDOW Or WS_CLIPCHILDREN, _
@@ -247,12 +325,12 @@ Private Function tWinMain( _
 		hInst, _
 		NULL _
 	)
-	If hWndMain = NULL Then
+	If hWin = NULL Then
 		Return 1
 	End If
 	
-	ShowWindow(hWndMain, iCmdShow)
-	UpdateWindow(hWndMain)
+	ShowWindow(hWin, iCmdShow)
+	UpdateWindow(hWin)
 	
 	Dim m As MSG = Any
 	Dim GetMessageResult As Integer = GetMessage(@m, NULL, 0, 0)
@@ -261,7 +339,14 @@ Private Function tWinMain( _
 		
 		If GetMessageResult = -1 Then
 			Return 1
-		Else
+		End If
+		
+		Dim resDialogMessage As BOOL = IsDialogMessage( _
+			hWin, _
+			@m _
+		)
+		
+		If resDialogMessage = 0 Then
 			TranslateMessage(@m)
 			DispatchMessage(@m)
 		End If
