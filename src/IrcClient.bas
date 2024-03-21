@@ -1886,14 +1886,13 @@ Private Function StartSendOverlapped( _
 	
 End Function
 
-Private Sub MakeConnectionString( _
-		ByRef ConnectionString As ValueBSTR, _
+Private Function MakeConnectionString( _
 		ByVal Password As BSTR, _
 		ByVal Nick As BSTR, _
 		ByVal User As BSTR, _
 		ByVal ModeFlags As Long, _
 		ByVal RealName As BSTR _
-	)
+	)As ValueBSTR
 	
 	'PASS password
 	'<password>
@@ -1906,6 +1905,8 @@ Private Sub MakeConnectionString( _
 	
 	'USER paul 0 * :Paul Mutton
 	'<user> <mode> <unused> :<realname>
+	
+	Dim ConnectionString As ValueBSTR
 	
 	If SysStringLen(Password) <> 0 Then
 		ConnectionString.Append(PassStringWithSpace, Len(PassStringWithSpace))
@@ -1932,7 +1933,9 @@ Private Sub MakeConnectionString( _
 		ConnectionString &= RealName
 	End If
 	
-End Sub
+	Return ConnectionString
+	
+End Function
 
 Public Function IrcClientChangeNick( _
 		ByVal pIrcClient As IrcClient Ptr, _
@@ -2539,7 +2542,7 @@ Public Function IrcClientGetClientVersion( _
 		ByVal ppVersion As BSTR Ptr _
 	)As HRESULT
 	
-	Dim Length As UINT = SysStringLen(@pIrcClient->ClientVersion.WChars(0))
+	Dim Length As UINT = Len(pIrcClient->ClientVersion)
 	Dim pbstr As BSTR = SysAllocStringLen( _
 		@pIrcClient->ClientVersion.WChars(0), _
 		Length _
@@ -2567,7 +2570,7 @@ Public Function IrcClientGetUserInfo( _
 		ByVal ppUserInfo As BSTR Ptr _
 	)As HRESULT
 	
-	Dim Length As UINT = SysStringLen(@pIrcClient->ClientUserInfo.WChars(0))
+	Dim Length As UINT = Len(pIrcClient->ClientUserInfo)
 	Dim pbstr As BSTR = SysAllocStringLen( _
 		@pIrcClient->ClientUserInfo.WChars(0), _
 		Length _
@@ -2604,9 +2607,9 @@ End Function
 Public Function IrcClientOpenConnection( _
 		ByVal pIrcClient As IrcClient Ptr, _
 		ByVal Server As BSTR, _
-		ByVal Port As Integer, _
+		ByVal Port As BSTR, _
 		ByVal LocalServer As BSTR, _
-		ByVal LocalPort As Integer, _
+		ByVal LocalPort As BSTR, _
 		ByVal Password As BSTR, _
 		ByVal Nick As BSTR, _
 		ByVal User As BSTR, _
@@ -2614,37 +2617,60 @@ Public Function IrcClientOpenConnection( _
 		ByVal RealName As BSTR _
 	)As HRESULT
 	
+	ResetEvent(pIrcClient->hEvent)
+	
 	pIrcClient->ErrorCode = S_OK
 	
 	pIrcClient->pRecvContext->cbLength = 0
 	pIrcClient->ClientNick = Nick
 	
-	Dim ConnectionString As ValueBSTR
-	MakeConnectionString(ConnectionString, Password, Nick, User, ModeFlags, RealName)
+	Dim ConnectionString As ValueBSTR = MakeConnectionString( _
+		Password, _
+		Nick, _
+		User, _
+		ModeFlags, _
+		RealName _
+	)
 	
-	Dim wszPort As WString * 100 = Any
-	_ltow(CLng(Port), @wszPort, 10)
+	Dim PortLength As UINT = SysStringLen(Port)
+	Dim bstrPort As ValueBSTR = Any
+	If PortLength Then
+		bstrPort = Type<ValueBSTR>(Port)
+	Else
+		bstrPort = Type<ValueBSTR>(WStr("6667"))
+	End If
 	
-	Dim wszLocalPort As WString * 100 = Any
-	_ltow(CLng(LocalPort), @wszLocalPort, 10)
+	Dim LocalPortLength As UINT = SysStringLen(LocalPort)
+	Dim bstrLocalPort As ValueBSTR = Any
+	If LocalPortLength Then
+		bstrLocalPort = Type<ValueBSTR>(LocalPort)
+	Else
+		bstrLocalPort = Type<ValueBSTR>(WStr("0"))
+	End If
 	
-	Dim hr As HRESULT = ConnectToServerW( _
+	Dim hrConnect As HRESULT = ConnectToServerW( _
 		LocalServer, _
-		@wszLocalPort, _
+		bstrLocalPort, _
 		Server, _
-		@wszPort, _
+		bstrPort, _
 		@pIrcClient->ClientSocket _
 	)
-	If FAILED(hr) Then
-		Return hr
+	If FAILED(hrConnect) Then
+		Return hrConnect
 	End If
 	
-	hr = StartSendOverlapped(pIrcClient, ConnectionString)
-	If FAILED(hr) Then
-		Return hr
+	Dim hrSend As HRESULT = StartSendOverlapped(pIrcClient, ConnectionString)
+	If FAILED(hrSend) Then
+		CloseSocketConnection(pIrcClient->ClientSocket)
+		Return hrSend
 	End If
 	
-	Return StartRecvOverlapped(pIrcClient)
+	Dim hrRecv As HRESULT = StartRecvOverlapped(pIrcClient)
+	If FAILED(hrSend) Then
+		CloseSocketConnection(pIrcClient->ClientSocket)
+	End If
+	
+	Return hrRecv
 	
 End Function
 
@@ -2655,6 +2681,7 @@ Public Sub IrcClientCloseConnection( _
 	CloseSocketConnection(pIrcClient->ClientSocket)
 	pIrcClient->ClientSocket = INVALID_SOCKET
 	pIrcClient->ErrorCode = S_OK
+	
 	SetEvent(pIrcClient->hEvent)
 	
 End Sub
@@ -2664,27 +2691,34 @@ Public Function IrcClientMainLoop( _
 	)As HRESULT
 	
 	Do
-		
 		Dim dwWaitResult As DWORD = WaitForSingleObjectEx( _
 			pIrcClient->hEvent, _
 			TenMinutesInMilliSeconds, _
 			TRUE _
 		)
+		
 		Select Case dwWaitResult
 			
 			Case WAIT_OBJECT_0
+				' The event became a signal
+				' exit from loop
 				Return S_FALSE
 				
 			Case WAIT_ABANDONED
-				Return E_FAIL
+				Return HRESULT_FROM_WIN32(WAIT_ABANDONED)
 				
 			Case WAIT_IO_COMPLETION
-				' Завершилась асинхронная процедура, продолжаем ждать
+				' The asynchronous procedure has ended
+				' we continue to wait
+				Return pIrcClient->ErrorCode
 				
 			Case WAIT_TIMEOUT
-				Return S_FALSE
+				' Timed out
+				' no response from server
+				Return HRESULT_FROM_WIN32(WAIT_TIMEOUT)
 				
 			Case WAIT_FAILED
+				' The event closed
 				Dim dwError As DWORD = GetLastError()
 				Return HRESULT_FROM_WIN32(dwError)
 				
@@ -2701,45 +2735,47 @@ Public Function IrcClientMsgMainLoop( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 	
-	Do
+	Dim dwWaitResult As DWORD = MsgWaitForMultipleObjectsEx( _
+		1, _
+		@pIrcClient->hEvent, _
+		TenMinutesInMilliSeconds, _
+		QS_ALLEVENTS Or QS_ALLINPUT Or QS_ALLPOSTMESSAGE, _
+		MWMO_ALERTABLE Or MWMO_INPUTAVAILABLE _
+	)
+	
+	Select Case dwWaitResult
 		
-		Dim dwWaitResult As DWORD = MsgWaitForMultipleObjectsEx( _
-			1, _
-			@pIrcClient->hEvent, _
-			TenMinutesInMilliSeconds, _
-			QS_ALLEVENTS Or QS_ALLINPUT Or QS_ALLPOSTMESSAGE, _
-			MWMO_ALERTABLE Or MWMO_INPUTAVAILABLE _
-		)
-		Select Case dwWaitResult
+		Case WAIT_OBJECT_0
+			' The event became a signal
+			' exit from loop
+			Return S_FALSE
 			
-			Case WAIT_OBJECT_0
-				' Событие стало сигнальным
-				Return S_FALSE
-				
-			Case WAIT_OBJECT_0 + 1
-				' Сообщения добавлены в очередь сообщений
-				Return pIrcClient->ErrorCode
-				
-			Case WAIT_ABANDONED
-				Return E_FAIL
-				
-			Case WAIT_IO_COMPLETION
-				' Завершилась асинхронная процедура, продолжаем ждать
-				
-			Case WAIT_TIMEOUT
-				' Время ожидания события истекло = не выполнилась асинхронная процедура = нет ответа от сервера
-				Return S_FALSE
-				
-			Case WAIT_FAILED
-				' Событие уничтожено
-				Dim dwError As DWORD = GetLastError()
-				Return HRESULT_FROM_WIN32(dwError)
-				
-			Case Else
-				Return E_UNEXPECTED
-				
-		End Select
-		
-	Loop
+		Case WAIT_OBJECT_0 + 1
+			' Messages have been added to the message queue
+			' they need to be processed
+			Return pIrcClient->ErrorCode
+			
+		Case WAIT_ABANDONED
+			Return HRESULT_FROM_WIN32(WAIT_ABANDONED)
+			
+		Case WAIT_IO_COMPLETION
+			' The asynchronous procedure has ended
+			' we continue to wait
+			Return pIrcClient->ErrorCode
+			
+		Case WAIT_TIMEOUT
+			' Timed out
+			' no response from server
+			Return HRESULT_FROM_WIN32(WAIT_TIMEOUT)
+			
+		Case WAIT_FAILED
+			' The event closed
+			Dim dwError As DWORD = GetLastError()
+			Return HRESULT_FROM_WIN32(dwError)
+			
+		Case Else
+			Return E_UNEXPECTED
+			
+	End Select
 	
 End Function

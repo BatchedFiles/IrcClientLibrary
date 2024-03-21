@@ -87,8 +87,9 @@ End Type
 
 Type IrcClient As _IrcClient
 
-#define IrcClientOpenConnectionSimple1(pIrcClient, Server, Nick) IrcClientOpenConnection((pIrcClient), (Server), IRCPROTOCOL_DEFAULTPORT, NULL, 0, NULL, (Nick), (Nick), IRCPROTOCOL_MODEFLAG_INVISIBLE, (Nick))
-#define IrcClientOpenConnectionSimple2(pIrcClient, Server, Port, Nick, User, RealName) IrcClientOpenConnection((pIrcClient), (Server), (Port), @DefaultLocalServer, DefaultLocalPort, NULL, (Nick), (User), IRCPROTOCOL_MODEFLAG_INVISIBLE, (RealName))
+#define IrcClientOpenConnectionSimple1(pIrcClient, Server, Nick) IrcClientOpenConnection((pIrcClient), (Server), NULL, NULL, NULL, NULL, (Nick), (Nick), IRCPROTOCOL_MODEFLAG_INVISIBLE, (Nick))
+#define IrcClientOpenConnectionSimple2(pIrcClient, Server, Port, Nick) IrcClientOpenConnection((pIrcClient), (Server), (Port), NULL, NULL, NULL, (Nick), (Nick), IRCPROTOCOL_MODEFLAG_INVISIBLE, (Nick))
+#define IrcClientOpenConnectionSimple3(pIrcClient, Server, Port, Nick, User, RealName) IrcClientOpenConnection((pIrcClient), (Server), (Port), NULL, NULL, NULL, (Nick), (User), IRCPROTOCOL_MODEFLAG_INVISIBLE, (RealName))
 #define IrcClientQuitFromServerSimple(pIrcClient) IrcClientQuitFromServer((pIrcClient), NULL)
 #define IrcClientPartChannelSimple(pIrcClient) IrcClientPartChannel((pIrcClient), NULL)
 #define IrcClientSendKickSimple(pIrcClient, Channel, UserName) IrcClientSendKick((pIrcClient), (Channel), (UserName), NULL)
@@ -165,9 +166,9 @@ Declare Function IrcClientMsgMainLoop( _
 Declare Function IrcClientOpenConnection( _
 	ByVal pIrcClient As IrcClient Ptr, _
 	ByVal Server As BSTR, _
-	ByVal Port As Integer, _
+	ByVal Port As BSTR, _
 	ByVal LocalAddress As BSTR, _
-	ByVal LocalPort As Integer, _
+	ByVal LocalPort As BSTR, _
 	ByVal Password As BSTR, _
 	ByVal Nick As BSTR, _
 	ByVal User As BSTR, _
