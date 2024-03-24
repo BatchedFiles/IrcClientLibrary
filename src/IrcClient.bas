@@ -1654,7 +1654,7 @@ Private Sub ReceiveCompletionRoutine( _
 	Dim pContext As RecvClientContext Ptr = CPtr(RecvClientContext Ptr, lpOverlapped)
 	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
 	
-	If dwError <> 0 Then
+	If dwError Then
 		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
 		SetEvent(pIrcClient->hEvent)
 		Exit Sub
@@ -1686,12 +1686,13 @@ Private Sub ReceiveCompletionRoutine( _
 			' bstrServerResponse.PlaceHolder
 			' bstrServerResponse.BytesCount
 			' bstrServerResponse.WChars
+			Dim lpBuffer As LPWSTR = @bstrServerResponse.WChars(0)
 			Dim ServerResponseLength As Long = MultiByteToWideChar( _
 				pIrcClient->CodePage, _
 				0, _
 				@pContext->Buffer, _
 				CrLfIndex, _
-				@bstrServerResponse.WChars(0), _
+				lpBuffer, _
 				VALUEBSTR_BUFFER_CAPACITY _
 			)
 			
@@ -1757,11 +1758,16 @@ Private Function StartRecvOverlapped( _
 	)As HRESULT
 	
 	Const WsaBufBuffersCount As DWORD = 1
-	Dim RecvBuf As WSABUF = Any
-	RecvBuf.len = Cast(ULONG, IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - pIrcClient->pRecvContext->cbLength)
-	RecvBuf.buf = @pIrcClient->pRecvContext->Buffer[pIrcClient->pRecvContext->cbLength]
 	
-	ZeroMemory(@pIrcClient->pRecvContext->Overlap, SizeOf(WSAOVERLAPPED))
+	Dim Length As Integer = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - pIrcClient->pRecvContext->cbLength
+	Dim lpBuf As ZString Ptr = @pIrcClient->pRecvContext->Buffer[pIrcClient->pRecvContext->cbLength]
+	
+	Dim RecvBuf As WSABUF = Any
+	RecvBuf.len = Cast(ULONG, Length)
+	RecvBuf.buf = lpBuf
+	
+	Dim lpOverlap As OVERLAPPED Ptr = @pIrcClient->pRecvContext->Overlap
+	ZeroMemory(lpOverlap, SizeOf(WSAOVERLAPPED))
 	
 	Dim Flags As DWORD = 0
 	Dim res As Long = WSARecv( _
@@ -1770,16 +1776,18 @@ Private Function StartRecvOverlapped( _
 		WsaBufBuffersCount, _
 		NULL, _
 		@Flags, _
-		@pIrcClient->pRecvContext->Overlap, _
+		lpOverlap, _
 		@ReceiveCompletionRoutine _
 	)
-	If res <> 0 Then
+	
+	If res Then
+		Dim dwError As Long = WSAGetLastError()
 		
-		res = WSAGetLastError()
-		If res <> WSA_IO_PENDING Then
-			Return HRESULT_FROM_WIN32(res)
+		If dwError = WSA_IO_PENDING Then
+			Return S_OK
 		End If
 		
+		Return HRESULT_FROM_WIN32(dwError)
 	End If
 	
 	Return S_OK
@@ -1819,70 +1827,65 @@ Private Function StartSendOverlapped( _
 		ByRef strData As ValueBSTR _
 	)As HRESULT
 	
-	Dim hr As HRESULT = E_OUTOFMEMORY
 	Dim pContext As SendClientContext Ptr = Allocate(SizeOf(SendClientContext))
-	
-	If pContext Then
-		
-		pContext->cbLength = WideCharToMultiByte( _
-			pIrcClient->CodePage, _
-			0, _
-			@strData.WChars(0), _
-			Len(strData), _
-			@pContext->Buffer, _
-			SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
-			NULL, _
-			NULL _
-		)
-		
-		If pContext->cbLength Then
-			
-			ZeroMemory(@pContext->Overlap, SizeOf(WSAOVERLAPPED))
-			
-			pContext->pIrcClient = pIrcClient
-			
-			Dim CrLf As CrLfA = Any
-			CrLf.Cr = Characters.CarriageReturn
-			CrLf.Lf = Characters.LineFeed
-			
-			Dim SendBuf As SendBuffers = Any
-			SendBuf.Bytes.len = Cast(ULONG, min(pContext->cbLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
-			SendBuf.Bytes.buf = @pContext->Buffer
-			
-			SendBuf.CrLf.len = CrLfALength
-			SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
-			
-			Const dwSendFlags As DWORD = 0
-			Dim res As Long = WSASend( _
-				pIrcClient->ClientSocket, _
-				CPtr(WSABUF Ptr, @SendBuf), _
-				SendBuffersCount, _
-				NULL, _
-				dwSendFlags, _
-				@pContext->Overlap, _
-				@SendCompletionRoutine _
-			)
-			Dim ErrorCode As Long = WSAGetLastError()
-			hr = HRESULT_FROM_WIN32(ErrorCode)
-			
-			If res = 0 Then
-				Return S_OK
-			End If
-			
-			If ErrorCode = WSA_IO_PENDING Then
-				Return S_OK
-			End If
-			
-		End If
-		
-		Dim dwError As DWORD = GetLastError()
-		hr = HRESULT_FROM_WIN32(dwError)
-		
-		Deallocate(pContext)
-		
+	If pContext = 0 Then
+		Return E_OUTOFMEMORY
 	End If
 	
-	Return hr
+	pContext->cbLength = WideCharToMultiByte( _
+		pIrcClient->CodePage, _
+		0, _
+		@strData.WChars(0), _
+		Len(strData), _
+		@pContext->Buffer, _
+		SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
+		NULL, _
+		NULL _
+	)
+	If pContext->cbLength = 0 Then
+		Dim dwError As DWORD = GetLastError()
+		Deallocate(pContext)
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	ZeroMemory(@pContext->Overlap, SizeOf(WSAOVERLAPPED))
+	
+	pContext->pIrcClient = pIrcClient
+	
+	Dim CrLf As CrLfA = Any
+	CrLf.Cr = Characters.CarriageReturn
+	CrLf.Lf = Characters.LineFeed
+	
+	Dim SendBuf As SendBuffers = Any
+	SendBuf.Bytes.len = Cast(ULONG, min(pContext->cbLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
+	SendBuf.Bytes.buf = @pContext->Buffer
+	
+	SendBuf.CrLf.len = CrLfALength
+	SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
+	
+	Const dwSendFlags As DWORD = 0
+	Dim res As Long = WSASend( _
+		pIrcClient->ClientSocket, _
+		CPtr(WSABUF Ptr, @SendBuf), _
+		SendBuffersCount, _
+		NULL, _
+		dwSendFlags, _
+		@pContext->Overlap, _
+		@SendCompletionRoutine _
+	)
+	
+	If res Then
+		Dim dwError As Long = WSAGetLastError()
+		
+		If dwError = WSA_IO_PENDING Then
+			Return S_OK
+		End If
+		
+		Deallocate(pContext)
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
 	
 End Function
 
