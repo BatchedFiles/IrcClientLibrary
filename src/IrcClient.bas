@@ -100,6 +100,7 @@ End Enum
 
 'IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(CrLf)
 Const VALUEBSTR_BUFFER_CAPACITY As Integer = 510
+Const SocketListCapacity As Integer = 16
 
 Type ValueBSTR
 	
@@ -175,6 +176,15 @@ End Type
 Type SendBuffers
 	Bytes As WSABUF
 	CrLf As WSABUF
+End Type
+
+Type SocketNode
+	ClientSocket As SOCKET
+	Padding1 As Integer
+	AddressFamily As Long
+	SocketType As Long
+	Protocol As Long
+	Padding2 As Long
 End Type
 
 Type _IrcClient
@@ -1260,63 +1270,6 @@ Private Function ParseData( _
 	
 End Function
 
-Private Function ResolveHostA( _
-		ByVal Host As PCSTR, _
-		ByVal Port As PCSTR, _
-		ByVal ppAddressList As addrinfo Ptr Ptr _
-	)As HRESULT
-	
-	Dim hints As addrinfo
-	With hints
-		.ai_family = AF_UNSPEC ' AF_INET или AF_INET6
-		.ai_socktype = SOCK_STREAM
-		.ai_protocol = IPPROTO_TCP
-	End With
-	
-	*ppAddressList = NULL
-	
-	If getaddrinfo(Host, Port, @hints, ppAddressList) = 0 Then
-		
-		Return S_OK
-		
-	End If
-	
-	Dim dwError As Long = WSAGetLastError()
-	Return HRESULT_FROM_WIN32(dwError)
-	
-End Function
-
-Private Function ResolveHostW( _
-		ByVal Host As PCWSTR, _
-		ByVal Port As PCWSTR, _
-		ByVal ppAddressList As ADDRINFOW Ptr Ptr _
-	)As HRESULT
-	
-	Dim hints As ADDRINFOW = Any
-	ZeroMemory(@hints, SizeOf(ADDRINFOW))
-	
-	With hints
-		.ai_family = AF_UNSPEC ' AF_INET, AF_INET6
-		.ai_socktype = SOCK_STREAM
-		.ai_protocol = IPPROTO_TCP
-	End With
-	
-	*ppAddressList = NULL
-	
-	Dim resAddrInfo As INT_ = GetAddrInfoW( _
-		Host, _
-		Port, _
-		@hints, _
-		ppAddressList _
-	)
-	If resAddrInfo Then
-		Return HRESULT_FROM_WIN32(resAddrInfo)
-	End If
-	
-	Return S_OK
-	
-End Function
-
 Private Function IrcClientStartup( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
@@ -1344,131 +1297,208 @@ Private Function IrcClientCleanup( _
 	
 End Function
 
-Private Function CreateSocketAndBindA( _
-		ByVal LocalAddress As PCSTR, _
-		ByVal LocalPort As PCSTR, _
-		ByVal pSocket As SOCKET Ptr _
+Private Function ResolveHostW( _
+		ByVal Host As PCWSTR, _
+		ByVal Port As PCWSTR, _
+		ByVal ppAddressList As ADDRINFOW Ptr Ptr _
 	)As HRESULT
 	
-	Dim ClientSocket As SOCKET = WSASocketA( _
-		AF_UNSPEC, _
-		SOCK_STREAM, _
-		IPPROTO_TCP, _
+	' Dim hints As ADDRINFOW = Any
+	' ZeroMemory(@hints, SizeOf(ADDRINFOW))
+	
+	' With hints
+	' 	.ai_family = AF_UNSPEC ' AF_INET, AF_INET6
+	' 	.ai_socktype = SOCK_STREAM
+	' 	.ai_protocol = IPPROTO_TCP
+	' End With
+	
+	*ppAddressList = NULL
+	
+	' Dim resAddrInfo As INT_ = GetAddrInfoW( _
+	' 	Host, _
+	' 	Port, _
+	' 	@hints, _
+	' 	ppAddressList _
+	' )
+	Dim resAddrInfo As INT_ = GetAddrInfoW( _
+		Host, _
+		Port, _
 		NULL, _
-		0, _
-		WSA_FLAG_OVERLAPPED _
+		ppAddressList _
 	)
-	If ClientSocket = INVALID_SOCKET Then
-		Dim dwError As Long = WSAGetLastError()
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(dwError)
+	If resAddrInfo Then
+		Return HRESULT_FROM_WIN32(resAddrInfo)
 	End If
 	
-	Dim pAddressList As addrinfo Ptr = NULL
-	Dim hr As HRESULT = ResolveHostA(LocalAddress, LocalPort, @pAddressList)
-	If FAILED(hr) Then
-		Dim dwError As Long = WSAGetLastError()
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-	
-	Dim pAddress As addrinfo Ptr = pAddressList
-	Dim BindResult As Long = 0
-	
-	Dim e As Long = 0
-	
-	If LocalAddress Then
-		Do
-			BindResult = bind( _
-				ClientSocket, _
-				Cast(LPSOCKADDR, pAddress->ai_addr), _
-				pAddress->ai_addrlen _
-			)
-			e = WSAGetLastError()
-			
-			If BindResult = 0 Then
-				Exit Do
-			End If
-			
-			pAddress = pAddress->ai_next
-			
-		Loop Until pAddress = 0
-	End If
-	
-	FreeAddrInfo(pAddressList)
-	
-	If BindResult <> 0 Then
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(e)
-	End If
-	
-	*pSocket = ClientSocket
 	Return S_OK
 	
 End Function
 
-Private Function CreateSocketAndBindW( _
+Public Function CreateSocketsAndBindW( _
 		ByVal LocalAddress As PCWSTR, _
 		ByVal LocalPort As PCWSTR, _
-		ByVal pSocket As SOCKET Ptr _
+		ByVal pSocketList As SocketNode Ptr, _
+		ByVal Count As Integer, _
+		ByVal pSockets As Integer Ptr _
 	)As HRESULT
 	
-	Dim pAddressList As addrinfoW Ptr = NULL
-	Dim hrResolve As HRESULT = ResolveHostW( _
+	Dim pAddressList As ADDRINFOW Ptr = NULL
+	Dim hr As HRESULT = ResolveHostW( _
 		LocalAddress, _
 		LocalPort, _
 		@pAddressList _
 	)
-	If FAILED(hrResolve) Then
-		*pSocket = INVALID_SOCKET
-		Return hrResolve
+	If FAILED(hr) Then
+		*pSockets = 0
+		Return hr
 	End If
 	
-	Dim ClientSocket As SOCKET = WSASocketW( _
-		AF_UNSPEC, _
-		SOCK_STREAM, _
-		IPPROTO_TCP, _
-		NULL, _
-		0, _
-		WSA_FLAG_OVERLAPPED _
-	)
-	If ClientSocket = INVALID_SOCKET Then
-		Dim dwError As Long = WSAGetLastError()
-		*pSocket = INVALID_SOCKET
+	Dim pAddressNode As ADDRINFOW Ptr = pAddressList
+	Dim BindResult As Long = 0
+	Dim SocketCount As Integer = 0
+	
+	Dim dwError As Long = 0
+	Do
+		If SocketCount > Count Then
+			dwError = ERROR_INSUFFICIENT_BUFFER
+			Exit Do
+		End If
+		
+		Dim ClientSocket As SOCKET = WSASocketW( _
+			pAddressNode->ai_family, _
+			pAddressNode->ai_socktype, _
+			pAddressNode->ai_protocol, _
+			CPtr(WSAPROTOCOL_INFOW Ptr, NULL), _
+			0, _
+			WSA_FLAG_OVERLAPPED _
+		)
+		If ClientSocket = INVALID_SOCKET Then
+			dwError = WSAGetLastError()
+			pAddressNode = pAddressNode->ai_next
+			Continue Do
+		End If
+		
+		BindResult = bind( _
+			ClientSocket, _
+			Cast(LPSOCKADDR, pAddressNode->ai_addr), _
+			pAddressNode->ai_addrlen _
+		)
+		If BindResult Then
+			dwError = WSAGetLastError()
+			closesocket(ClientSocket)
+			pAddressNode = pAddressNode->ai_next
+			Continue Do
+		End If
+		
+		pSocketList[SocketCount].ClientSocket = ClientSocket
+		pSocketList[SocketCount].AddressFamily = pAddressNode->ai_family
+		pSocketList[SocketCount].SocketType = pAddressNode->ai_socktype
+		pSocketList[SocketCount].Protocol = pAddressNode->ai_protocol
+		
+		SocketCount += 1
+		pAddressNode = pAddressNode->ai_next
+		
+	Loop While pAddressNode
+	
+	FreeAddrInfoW(pAddressList)
+	
+	If BindResult Then
+		For i As Integer = 0 To SocketCount - 1
+			closesocket(pSocketList[i].ClientSocket)
+		Next
+		*pSockets = 0
 		Return HRESULT_FROM_WIN32(dwError)
 	End If
 	
-	Dim pAddress As addrinfoW Ptr = pAddressList
-	Dim BindResult As Long = 0
+	*pSockets = SocketCount
 	
-	Dim e As Long = 0
+	Return S_OK
 	
-	If LocalAddress Then
+End Function
+
+Private Function ConnectToServerW( _
+		ByVal LocalAddress As PCWSTR, _
+		ByVal LocalPort As PCWSTR, _
+		ByVal RemoteAddress As PCWSTR, _
+		ByVal RemotePort As PCWSTR, _
+		ByVal pClientSocket As SOCKET Ptr _
+	)As HRESULT
+	
+	Dim Count As Integer = SocketListCapacity
+	
+	Dim pSocketList As SocketNode Ptr = Allocate(Count * SizeOf(SocketNode))
+	If pSocketList = 0 Then
+		*pClientSocket = INVALID_SOCKET
+		Return E_OUTOFMEMORY
+	End If
+	
+	Dim SocketLength As Integer = Any
+	Dim hrBind As HRESULT = CreateSocketsAndBindW( _
+		LocalAddress, _
+		LocalPort, _
+		pSocketList, _
+		Count, _
+		@SocketLength _
+	)
+	If FAILED(hrBind) Then
+		Deallocate(pSocketList)
+		*pClientSocket = INVALID_SOCKET
+		Return hrBind
+	End If
+	
+	Dim pAddressList As addrinfoW Ptr = NULL
+	Dim hrResolve As HRESULT = ResolveHostW(RemoteAddress, RemotePort, @pAddressList)
+	If FAILED(hrResolve) Then
+		For i As Integer = 0 To SocketLength - 1
+			closesocket(pSocketList[i].ClientSocket)
+		Next
+		Deallocate(pSocketList)
+		*pClientSocket = INVALID_SOCKET
+		Return hrResolve
+	End If
+	
+	Dim ConnectResult As Long = SOCKET_ERROR
+	Dim dwError As Long = 0
+	
+	For i As Integer = 0 To SocketLength - 1
+		Dim pAddress As addrinfoW Ptr = pAddressList
+		
 		Do
-			BindResult = bind( _
-				ClientSocket, _
+			ConnectResult = connect( _
+				pSocketList[i].ClientSocket, _
 				Cast(LPSOCKADDR, pAddress->ai_addr), _
 				pAddress->ai_addrlen _
 			)
-			e = WSAGetLastError()
+			dwError = WSAGetLastError()
 			
-			If BindResult = 0 Then
-				Exit Do
+			If ConnectResult = 0 Then
+				*pClientSocket = pSocketList[i].ClientSocket
+				Exit For
 			End If
 			
 			pAddress = pAddress->ai_next
 			
 		Loop Until pAddress = 0
-	End If
+	Next
 	
 	FreeAddrInfoW(pAddressList)
 	
-	If BindResult <> 0 Then
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(e)
+	If ConnectResult <> 0 Then
+		For i As Integer = 0 To SocketLength - 1
+			closesocket(pSocketList[i].ClientSocket)
+		Next
+		Deallocate(pSocketList)
+		*pClientSocket = INVALID_SOCKET
+		Return HRESULT_FROM_WIN32(dwError)
 	End If
 	
-	*pSocket = ClientSocket
+	For i As Integer = 0 To SocketLength - 1
+		If pSocketList[i].ClientSocket <> *pClientSocket Then
+			closesocket(pSocketList[i].ClientSocket)
+		End If
+	Next
+	Deallocate(pSocketList)
+	
 	Return S_OK
 	
 End Function
@@ -1489,139 +1519,6 @@ Private Function CloseSocketConnection( _
 		Return HRESULT_FROM_WIN32(dwError)
 	End If
 	
-	Return S_OK
-	
-End Function
-
-Private Function SetReceiveTimeout( _
-		ByVal ClientSocket As SOCKET, _
-		ByVal dwMilliseconds As DWORD _
-	)As HRESULT
-	
-	Dim res As Integer = setsockopt( _
-		ClientSocket, _
-		SOL_SOCKET, _
-		SO_RCVTIMEO, _
-		CPtr(ZString Ptr, @dwMilliseconds), _
-		SizeOf(DWORD) _
-	)
-	If res <> 0 Then
-		Dim dwError As Long = WSAGetLastError()
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-	
-	Return S_OK
-	
-End Function
-
-Private Function ConnectToServerA( _
-		ByVal LocalAddress As PCSTR, _
-		ByVal LocalPort As PCSTR, _
-		ByVal RemoteAddress As PCSTR, _
-		ByVal RemotePort As PCSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
-	
-	Dim ClientSocket As SOCKET = Any
-	Dim hrBind As HRESULT = CreateSocketAndBindA(LocalAddress, LocalPort, @ClientSocket)
-	If FAILED(hrBind) Then
-		*pSocket = INVALID_SOCKET
-		Return hrBind
-	End If
-	
-	Dim pAddressList As addrinfo Ptr = NULL
-	Dim hrResolve As HRESULT = ResolveHostA(RemoteAddress, RemotePort, @pAddressList)
-	If FAILED(hrResolve) Then
-		closesocket(ClientSocket)
-		*pSocket = INVALID_SOCKET
-		Return hrResolve
-	End If
-	
-	Dim pAddress As addrinfo Ptr = pAddressList
-	Dim ConnectResult As Long = 0
-	
-	Dim e As Long = 0
-	Do
-		ConnectResult = connect( _
-			ClientSocket, _
-			Cast(LPSOCKADDR, pAddress->ai_addr), _
-			pAddress->ai_addrlen _
-		)
-		e = WSAGetLastError()
-		
-		If ConnectResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfo(pAddressList)
-	
-	If ConnectResult <> 0 Then
-		closesocket(ClientSocket)
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(e)
-	End If
-	
-	*pSocket = ClientSocket
-	Return S_OK
-	
-End Function
-
-Private Function ConnectToServerW( _
-		ByVal LocalAddress As PCWSTR, _
-		ByVal LocalPort As PCWSTR, _
-		ByVal RemoteAddress As PCWSTR, _
-		ByVal RemotePort As PCWSTR, _
-		ByVal pSocket As SOCKET Ptr _
-	)As HRESULT
-	
-	Dim ClientSocket As SOCKET = Any
-	Dim hrBind As HRESULT = CreateSocketAndBindW(LocalAddress, LocalPort, @ClientSocket)
-	If FAILED(hrBind) Then
-		*pSocket = INVALID_SOCKET
-		Return hrBind
-	End If
-	
-	Dim pAddressList As addrinfoW Ptr = NULL
-	Dim hrResolve As HRESULT = ResolveHostW(RemoteAddress, RemotePort, @pAddressList)
-	If FAILED(hrResolve) Then
-		closesocket(ClientSocket)
-		*pSocket = INVALID_SOCKET
-		Return hrResolve
-	End If
-	
-	Dim pAddress As addrinfoW Ptr = pAddressList
-	Dim ConnectResult As Long = 0
-	
-	Dim e As Long = 0
-	Do
-		ConnectResult = connect( _
-			ClientSocket, _
-			Cast(LPSOCKADDR, pAddress->ai_addr), _
-			pAddress->ai_addrlen _
-		)
-		e = WSAGetLastError()
-		
-		If ConnectResult = 0 Then
-			Exit Do
-		End If
-		
-		pAddress = pAddress->ai_next
-		
-	Loop Until pAddress = 0
-	
-	FreeAddrInfoW(pAddressList)
-	
-	If ConnectResult <> 0 Then
-		closesocket(ClientSocket)
-		*pSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(e)
-	End If
-	
-	*pSocket = ClientSocket
 	Return S_OK
 	
 End Function
@@ -2643,17 +2540,23 @@ Public Function IrcClientOpenConnection( _
 		bstrPort = Type<ValueBSTR>(WStr("6667"))
 	End If
 	
-	Dim LocalPortLength As UINT = SysStringLen(LocalPort)
-	Dim bstrLocalPort As ValueBSTR = Any
-	If LocalPortLength Then
-		bstrLocalPort = Type<ValueBSTR>(LocalPort)
+	Dim tLocalServer As WString Ptr = Any
+	If LocalServer = NULL Then
+		tLocalServer = @WStr("")
 	Else
-		bstrLocalPort = Type<ValueBSTR>(WStr("0"))
+		tLocalServer = LocalServer
+	End If
+	
+	Dim tLocalPort As WString Ptr = Any
+	If LocalPort = NULL Then
+		tLocalPort = @WStr("")
+	Else
+		tLocalPort = LocalPort
 	End If
 	
 	Dim hrConnect As HRESULT = ConnectToServerW( _
-		LocalServer, _
-		bstrLocalPort, _
+		tLocalServer, _
+		tLocalPort, _
 		Server, _
 		bstrPort, _
 		@pIrcClient->ClientSocket _
