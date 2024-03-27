@@ -2,16 +2,33 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Отладка x64",
+            "name": "Отладка gui",
             "type": "cppdbg",
             "request": "launch",
 
             /* Путь к скомпилированной программе */
             "program": "${workspaceFolder}/gui.exe",
+            
             /* параметры программы */
-            "args": [],
+            /* сервер, порт, ник, канал */
+            "args": [
+                "irc.quakenet.org",
+                "6667",
+                "JemmaSimmons",
+                "#chlor"
+                
+                // "irc.libera.chat",
+                // "6667",
+                // "JemmaSimmons",
+                // "#chlor"
+                
+                // "irc.pouque.net",
+                // "6667",
+                // "JemmaSimmons",
+                // "#chlor"
+            ],
 
-            "stopAtEntry": true,
+            "stopAtEntry": false,
 
             /* текущий каталог */
             "cwd": "${fileDirname}",

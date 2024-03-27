@@ -1,25 +1,24 @@
 #include once "IrcClient.bi"
 #include once "IrcReplies.bi"
 #include once "win\commctrl.bi"
+#include once "win\shlwapi.bi"
 #include once "win\windowsx.bi"
 
-Const IDC_SEND = 1001
 Const IDC_RECEIVE = 1002
 Const IDC_START = 1003
 Const IDC_STOP = 1004
 
-Dim Shared hWndSend As HWND
-Dim Shared hWndReceive As HWND
-Dim Shared hWndStart As HWND
-Dim Shared hWndStop As HWND
-
-Dim Shared Ev As IrcEvents
-Dim Shared pClient As IrcClient Ptr
-
-Dim Shared Server As BSTR
-Dim Shared Port As BSTR
-Dim Shared Nick As BSTR
-Dim Shared Channel As BSTR
+Type WindowContext
+	pClient As IrcClient Ptr
+	Server As BSTR
+	Port As BSTR
+	Nick As BSTR
+	Channel As BSTR
+	hWndReceive As HWND
+	hWndStart As HWND
+	hWndStop As HWND
+	Ev As IrcEvents
+End Type
 
 Private Sub AppendLengthTextW( _
 		ByVal hwndControl As HWND, _
@@ -54,10 +53,10 @@ Private Sub OnNumericMessage( _
 		ByVal MessageText As BSTR _
 	)
 	
-	Dim pClient As IrcClient Ptr = pClientData
+	Dim pContext As WindowContext Ptr = pClientData
 	
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
-		IrcClientJoinChannel(pClient, Channel)
+		IrcClientJoinChannel(pContext->pClient, pContext->Channel)
 	End If
 	
 End Sub
@@ -68,21 +67,23 @@ Private Sub OnIrcPrivateMessage( _
 		ByVal MessageText As BSTR _
 	)
 	
-	Dim pClient As IrcClient Ptr = pClientData
+	Dim pContext As WindowContext Ptr = pClientData
 	
 	Dim Message As BSTR = SysAllocString(WStr("Yes, me too"))
-	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
+	IrcClientSendPrivateMessage(pContext->pClient, pIrcPrefix->Nick, Message)
 	SysFreeString(Message)
 	
 End Sub
 
 Private Sub OnRawMessage( _
-		ByVal lpParameter As LPCLIENTDATA, _
+		ByVal pClientData As LPCLIENTDATA, _
 		ByVal pBytes As Const UByte Ptr, _
 		ByVal Count As Integer _
 	)
 	
 	Const NewLine = !"\r\n"
+	
+	Dim pContext As WindowContext Ptr = pClientData
 	
 	Dim buf As WString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1) = Any
 	Dim Length As Long = MultiByteToWideChar( _
@@ -97,19 +98,20 @@ Private Sub OnRawMessage( _
 	
 	lstrcatW(@buf, @WStr(NewLine))	
 	
-	AppendLengthTextW(hWndReceive, @buf, Length + Len(NewLine))
+	AppendLengthTextW(pContext->hWndReceive, @buf, Length + Len(NewLine))
 	
 End Sub
 
 Private Function MessageLoop( _
-		ByVal hWin As HWND _
+		ByVal hWin As HWND, _
+		ByVal pContext As WindowContext Ptr _
 	)As Integer
 	
 	Do
-		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pClient)
+		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pContext->pClient)
 		
 		If FAILED(hrLoop) Then
-			IrcClientCloseConnection(pClient)
+			IrcClientCloseConnection(pContext->pClient)
 			Return 1
 		End If
 		
@@ -145,7 +147,7 @@ Private Function MessageLoop( _
 				Loop
 				
 			Case Else ' S_FALSE
-				IrcClientCloseConnection(pClient)
+				IrcClientCloseConnection(pContext->pClient)
 				Return 0
 		End Select
 	Loop
@@ -171,72 +173,68 @@ End Sub
 
 Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
 	
+	Dim pContext As WindowContext Ptr = Any
+	
+	If wMsg = WM_CREATE Then
+		Dim pStruct As CREATESTRUCT Ptr = CPtr(CREATESTRUCT Ptr, lParam)
+		pContext = pStruct->lpCreateParams
+		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pContext))
+		
+		pContext->hWndStart = CreateWindowEx(0, _
+			WC_BUTTON, _
+			"Start", _
+			WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			10, 10, 120, 36, _
+			hWin, _
+			Cast(HMENU, IDC_START), _
+			GetModuleHandle(0), _
+			NULL _
+		)
+		pContext->hWndStop = CreateWindowEx(0, _
+			WC_BUTTON, _
+			"Stop", _
+			WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			10 + 120 + 10, 10, 120, 36, _
+			hWin, _
+			Cast(HMENU, IDC_STOP), _
+			GetModuleHandle(0), _
+			NULL _
+		)
+		pContext->hWndReceive = CreateWindowEx(0, _
+			WC_EDIT, _
+			NULL, _
+			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
+			10, 56, 640, 480, _
+			hWin, _
+			Cast(HMENU, IDC_RECEIVE), _
+			GetModuleHandle(0), _
+			NULL _
+		)
+		
+		ZeroMemory(@pContext->Ev, SizeOf(IrcEvents))
+		pContext->Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+		pContext->Ev.lpfnNumericMessageEvent = @OnNumericMessage
+		pContext->Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
+		pContext->Ev.lpfnSendedRawMessageEvent = @OnRawMessage
+		
+		pContext->pClient = CreateIrcClient()
+		IrcClientSetCallback(pContext->pClient, @pContext->Ev, pContext)
+		
+		Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
+		IrcClientSetClientVersion(pContext->pClient, ClientVersion)
+		SysFreeString(ClientVersion)
+		
+		Dim UserInfo As BSTR = SysAllocString(WStr("zamabuvaraeu"))
+		IrcClientSetUserInfo(pContext->pClient, UserInfo)
+		SysFreeString(UserInfo)
+		
+		Return 0
+	End If
+	
+	pContext = Cast(Any Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+	
 	Select Case wMsg
 		
-		Case WM_CREATE
-			hWndStart = CreateWindowEx(0, _
-				WC_BUTTON, _
-				"Start", _
-				WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-				10, 10, 120, 36, _
-				hWin, _
-				Cast(HMENU, IDC_START), _
-				GetModuleHandle(0), _
-				NULL _
-			)
-			hWndStop = CreateWindowEx(0, _
-				WC_BUTTON, _
-				"Stop", _
-				WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-				10 + 120 + 10, 10, 120, 36, _
-				hWin, _
-				Cast(HMENU, IDC_STOP), _
-				GetModuleHandle(0), _
-				NULL _
-			)
-			hWndReceive = CreateWindowEx(0, _
-				WC_EDIT, _
-				NULL, _
-				WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
-				10, 56, 640, 480, _
-				hWin, _
-				Cast(HMENU, IDC_RECEIVE), _
-				GetModuleHandle(0), _
-				NULL _
-			)
-			
-			Server = SysAllocString(WStr("irc.pouque.net"))
-			Port = SysAllocString(WStr("6667"))
-			
-			' Server = SysAllocString(WStr("irc.quakenet.org"))
-			' Port = SysAllocString(WStr("6667"))
-			
-			' Server = SysAllocString(WStr("irc.libera.chat"))
-			' Port = SysAllocString(WStr("6667"))
-			
-			'сервер irc.tambov.ru Ч порты Ч 7770; SSL 9996
-			' Server = SysAllocString(WStr("irc.tambov.ru"))
-			' Port = SysAllocString(WStr("7770"))
-			
-			Nick = SysAllocString(WStr("LeoFitz"))
-			Channel = SysAllocString(WStr("#chlor"))
-			
-			Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
-			Ev.lpfnNumericMessageEvent = @OnNumericMessage
-			Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
-			Ev.lpfnSendedRawMessageEvent = @OnRawMessage
-			
-			pClient = CreateIrcClient()
-			IrcClientSetCallback(pClient, @Ev, pClient)
-			
-			Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
-			IrcClientSetClientVersion(pClient, ClientVersion)
-			SysFreeString(ClientVersion)
-			
-			Dim UserInfo As BSTR = SysAllocString(WStr("Leopold Fitz"))
-			IrcClientSetUserInfo(pClient, UserInfo)
-			SysFreeString(UserInfo)
-			
 		Case WM_COMMAND
 			
 			Select Case HiWord(wParam)
@@ -247,33 +245,34 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 						
 						Case IDC_START
 							Dim hrOpen As HRESULT = IrcClientOpenConnectionSimple2( _
-								pClient, _
-								Server, _
-								Port, _
-								Nick _
+								pContext->pClient, _
+								pContext->Server, _
+								pContext->Port, _
+								pContext->Nick _
 							)
 							
 							If SUCCEEDED(hrOpen) Then
-								DisableWindow(hWin, hWndStart)
-								EnableWindow(hwndStop, 1)
+								DisableWindow(hWin, pContext->hWndStart)
+								EnableWindow(pContext->hwndStop, 1)
 								
-								MessageLoop(hWin)
+								MessageLoop(hWin, pContext)
 								
-								EnableWindow(hWndStart, 1)
-								DisableWindow(hWin, hwndStop)
+								EnableWindow(pContext->hWndStart, 1)
+								DisableWindow(hWin, pContext->hwndStop)
 							End If
 							
 						Case IDC_STOP
-							IrcClientQuitFromServerSimple(pClient)
-							EnableWindow(hWndStart, 1)
-							DisableWindow(hWin, hwndStop)
+							IrcClientQuitFromServerSimple(pContext->pClient)
+							IrcClientCloseConnection(pContext->pClient)
+							EnableWindow(pContext->hWndStart, 1)
+							DisableWindow(hWin, pContext->hwndStop)
 							
 					End Select
 					
 			End Select
 			
 		Case WM_DESTROY
-			DestroyIrcClient(pClient)
+			DestroyIrcClient(pContext->pClient)
 			PostQuitMessage(0)
 			
 		Case Else
@@ -285,10 +284,10 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 	
 End Function
 
-Private Function tWinMain( _
+Private Function wWinMain( _
 		Byval hInst As HINSTANCE, _
 		ByVal hPrevInstance As HINSTANCE, _
-		ByVal lpCmdLine As LPTSTR, _
+		ByVal lpCmdLine As LPCWSTR, _
 		ByVal iCmdShow As Long _
 	)As Integer
 	
@@ -315,6 +314,18 @@ Private Function tWinMain( _
 		Return 1
 	End If
 	
+	Dim Argc As Long = Any
+	Dim Args As LPWSTR Ptr = CommandLineToArgvW( _
+		lpCmdLine, _
+		@Argc _
+	)
+	
+	Dim Context As WindowContext = Any
+	Context.Server = SysAllocString(Args[1])
+	Context.Port = SysAllocString(Args[2])
+	Context.Nick = SysAllocString(Args[3])
+	Context.Channel = SysAllocString(Args[4])
+	
 	Dim hWin As HWND = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, _
 		@MainWindowClassName, _
 		@NineWindowTitle, _
@@ -323,7 +334,7 @@ Private Function tWinMain( _
 		NULL, _
 		NULL, _
 		hInst, _
-		NULL _
+		@Context _
 	)
 	If hWin = NULL Then
 		Return 1
@@ -359,5 +370,6 @@ Private Function tWinMain( _
 	
 End Function
 
-Dim WinMainResult As Integer = tWinMain(GetModuleHandle(0), NULL, NULL, SW_SHOW)
+Dim lpCmdLine As WCHAR Ptr = GetCommandLineW()
+Dim WinMainResult As Integer = wWinMain(GetModuleHandle(0), NULL, lpCmdLine, SW_SHOW)
 End(WinMainResult)
