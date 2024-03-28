@@ -263,7 +263,6 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 							
 						Case IDC_STOP
 							IrcClientQuitFromServerSimple(pContext->pClient)
-							IrcClientCloseConnection(pContext->pClient)
 							EnableWindow(pContext->hWndStart, 1)
 							DisableWindow(hWin, pContext->hwndStop)
 							

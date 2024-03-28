@@ -1557,6 +1557,12 @@ Private Sub ReceiveCompletionRoutine( _
 		Exit Sub
 	End If
 	
+	If cbTransferred = 0 Then
+		pIrcClient->ErrorCode = S_FALSE
+		SetEvent(pIrcClient->hEvent)
+		Exit Sub
+	End If
+	
 	pContext->cbLength += CInt(cbTransferred)
 	
 	Dim CrLfIndex As Integer = Any
