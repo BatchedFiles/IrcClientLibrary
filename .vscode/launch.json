@@ -12,10 +12,20 @@
             /* параметры программы */
             /* сервер, порт, ник, канал */
             "args": [
-                "irc.quakenet.org",
-                "6667",
+                "irc.tambov.ru",
+                "7770",
                 "JemmaSimmons",
                 "#chlor"
+                
+                // "irc6.tambov.ru",
+                // "7770",
+                // "JemmaSimmons",
+                // "#chlor"
+                
+                // "irc.quakenet.org",
+                // "6667",
+                // "JemmaSimmons",
+                // "#chlor"
                 
                 // "irc.libera.chat",
                 // "6667",
