@@ -983,7 +983,7 @@ Private Function ProcessErrorCommand( _
 		End If
 	End If
 	
-	Return E_FAIL
+	Return S_OK
 	
 End Function
 
