@@ -378,75 +378,117 @@ Private Function GetIrcCommand( _
 		ByVal pIrcCommand As IrcCommand Ptr _
 	)As Boolean
 	
-	If lstrcmpW(w, @WStr(PingString)) = 0 Then
-		*pIrcCommand = IrcCommand.Ping
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(PingString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Ping
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(PrivateMessage)) = 0 Then
-		*pIrcCommand = IrcCommand.PrivateMessage
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(PrivateMessage))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.PrivateMessage
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(JoinString)) = 0 Then
-		*pIrcCommand = IrcCommand.Join
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(JoinString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Join
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(QuitString)) = 0 Then
-		*pIrcCommand = IrcCommand.Quit
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(QuitString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Quit
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(PartString)) = 0 Then
-		*pIrcCommand = IrcCommand.Part
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(PartString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Part
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(NoticeString)) = 0 Then
-		*pIrcCommand = IrcCommand.Notice
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(NoticeString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Notice
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(NickString)) = 0 Then
-		*pIrcCommand = IrcCommand.Nick
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(NickString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Nick
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(ErrorString)) = 0 Then
-		*pIrcCommand = IrcCommand.Error
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(ErrorString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Error
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(KickString)) = 0 Then
-		*pIrcCommand = IrcCommand.Kick
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(KickString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Kick
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(ModeString)) = 0 Then
-		*pIrcCommand = IrcCommand.Mode
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(ModeString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Mode
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(TopicString)) = 0 Then
-		*pIrcCommand = IrcCommand.Topic
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(TopicString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Topic
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(InviteString)) = 0 Then
-		*pIrcCommand = IrcCommand.Invite
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(InviteString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Invite
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(PongString)) = 0 Then
-		*pIrcCommand = IrcCommand.Pong
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(PongString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.Pong
+			Return True
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(SQuitString)) = 0 Then
-		*pIrcCommand = IrcCommand.SQuit
-		Return True
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(SQuitString))
+		If resCompare = 0 Then
+			*pIrcCommand = IrcCommand.SQuit
+			Return True
+		End If
+	End Scope
 	
 	Return False
 	
@@ -1906,10 +1948,10 @@ Public Function IrcClientSendPing( _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	' ŒÚ ÒÂ‚Â‡:
+	' –û—Ç —Å–µ—Ä–≤–µ—Ä–∞:
 	'PING space :<Server>
 	
-	' ŒÚ ÍÎËÂÌÚ‡:
+	' –û—Ç –∫–ª–∏–µ–Ω—Ç–∞:
 	'PING space <Server>
 	
 	If SysStringLen(Server) <> 0 Then
