@@ -504,7 +504,13 @@ Private Function IsNumericIrcCommand( _
 	End If
 	
 	For i As Integer = 0 To 2
-		If w[i] < Characters.DigitZero OrElse w[i] > Characters.DigitNine Then
+		Dim DigitCode As UShort = w[i]
+		
+		If DigitCode < Characters.DigitZero Then
+			Return False
+		End If
+		
+		If DigitCode > Characters.DigitNine Then
 			Return False
 		End If
 	Next
