@@ -568,25 +568,40 @@ Private Function GetCtcpCommand( _
 		ByVal w As WString Ptr _
 	)As CtcpMessageKind
 	
-	If lstrcmpW(w, @WStr(PingString)) = 0 Then
-		Return CtcpMessageKind.Ping
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(PingString))
+		If resCompare = 0 Then
+			Return CtcpMessageKind.Ping
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(ActionString)) = 0 Then
-		Return CtcpMessageKind.Action
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(ActionString))
+		If resCompare = 0 Then
+			Return CtcpMessageKind.Action
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(UserInfoString)) = 0 Then
-		Return CtcpMessageKind.UserInfo
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(UserInfoString))
+		If resCompare = 0 Then
+			Return CtcpMessageKind.UserInfo
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(TimeString)) = 0 Then
-		Return CtcpMessageKind.Time
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(TimeString))
+		If resCompare = 0 Then
+			Return CtcpMessageKind.Time
+		End If
+	End Scope
 	
-	If lstrcmpW(w, @WStr(VersionString)) = 0 Then
-		Return CtcpMessageKind.Version
-	End If
+	Scope
+		Dim resCompare As Long = lstrcmpW(w, @WStr(VersionString))
+		If resCompare = 0 Then
+			Return CtcpMessageKind.Version
+		End If
+	End Scope
 	
 	Return CtcpMessageKind.None
 	
