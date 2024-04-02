@@ -682,9 +682,11 @@ Private Function IsCtcpMessage( _
 	)As Boolean
 	
 	If MessageTextLength > 2 Then
-		Dim FirstChar As Integer = pwszMessageText[0]
+		Dim FirstChar As UShort = pwszMessageText[0]
+		
 		If FirstChar = Characters.StartOfHeading Then
-			Dim LastChar As Integer = pwszMessageText[MessageTextLength - 1]
+			Dim LastChar As UShort = pwszMessageText[MessageTextLength - 1]
+			
 			If LastChar = Characters.StartOfHeading Then
 				Return True
 			End If
