@@ -524,6 +524,7 @@ Private Function GetIrcServerName( _
 	)As WString Ptr
 	
 	Dim w As WString Ptr = StrChrW(strData, Characters.Colon)
+	
 	If w = NULL Then
 		Return NULL
 	End If
@@ -537,6 +538,7 @@ Private Function SeparateWordBySpace( _
 	)As WString Ptr
 	
 	Dim ws As WString Ptr = StrChrW(wStart, Characters.WhiteSpace)
+	
 	If ws = NULL Then
 		Return NULL
 	End If
@@ -553,6 +555,7 @@ Private Function GetIrcMessageText( _
 	
 	':Qubick!~miranda@192.168.1.1 PRIVMSG ##freebasic :Hello World
 	Dim w As WString Ptr = StrChrW(strData, Characters.Colon)
+	
 	If w = NULL Then
 		Return NULL
 	End If
