@@ -683,9 +683,17 @@ Private Function GetIrcPrefixInternal( _
 		HostLength = 0
 	End If
 	
-	pIrcPrefixInternal->Nick = Type<ValueBSTR>(*pNick, NickLength)
-	pIrcPrefixInternal->User = Type<ValueBSTR>(*pUser, UserLength)
-	pIrcPrefixInternal->Host = Type<ValueBSTR>(*pHost, HostLength)
+	Scope
+		pIrcPrefixInternal->Nick = Type<ValueBSTR>(*pNick, NickLength)
+	End Scope
+	
+	Scope
+		pIrcPrefixInternal->User = Type<ValueBSTR>(*pUser, UserLength)
+	End Scope
+	
+	Scope
+		pIrcPrefixInternal->Host = Type<ValueBSTR>(*pHost, HostLength)
+	End Scope
 	
 	Return IrcPrefixLength
 	
@@ -751,7 +759,7 @@ Private Function ProcessPrivateMessageCommand( _
 	Dim pwszMessageText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 	
 	If pwszMessageText <> 0 Then
-		Dim bstrMsgTarget As ValueBSTR = Type<ValueBSTR>(*pwszMsgTarget, pwszStartIrcParam2 - pwszMsgTarget - 1)
+		Dim bstrMsgTarget As BSTR = SysAllocStringLen(pwszMsgTarget, pwszStartIrcParam2 - pwszMsgTarget - 1)
 		
 		Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszMessageText
 		
@@ -833,9 +841,10 @@ Private Function ProcessPrivateMessageCommand( _
 							31 - dtBufferLength _
 						)
 						
-						Dim bstrTimeValue As ValueBSTR = Type<ValueBSTR>(TimeValue, Len(DateFormatString) + Len(TimeFormatString))
-						
-						Return IrcClientSendCtcpTimeResponse(pIrcClient, pPrefix->Nick, bstrTimeValue)
+						Dim bstrTimeValue As BSTR = SysAllocStringLen(@TimeValue, Len(DateFormatString) + Len(TimeFormatString))
+						Dim hrSendCtcpTime As HRESULT = IrcClientSendCtcpTimeResponse(pIrcClient, pPrefix->Nick, bstrTimeValue)
+						SysFreeString(bstrTimeValue)
+						Return hrSendCtcpTime
 					Else
 						pIrcClient->pEvents->lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
@@ -855,7 +864,7 @@ Private Function ProcessPrivateMessageCommand( _
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszMessageText)
 			pMessageText->Length = MessageTextLength
 			
-			If lstrcmp(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
+			If lstrcmpW(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
 				If CUInt(pIrcClient->pEvents->lpfnPrivateMessageEvent) Then
 					pIrcClient->pEvents->lpfnPrivateMessageEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 				End If
@@ -865,6 +874,8 @@ Private Function ProcessPrivateMessageCommand( _
 				End If
 			End If
 		End If
+		
+		SysFreeString(bstrMsgTarget)
 	End If
 	
 	Return S_OK
@@ -877,6 +888,7 @@ Private Function ProcessNoticeCommand( _
 		ByVal pwszIrcParam1 As WString Ptr, _
 		ByRef bstrIrcMessage As ValueBSTR _
 	)As HRESULT
+	
 	':Angel!wings@irc.org NOTICE Wiz :Are you receiving this message ?
 	':Angel!wings@irc.org NOTICE Qubick :\001PING 1402355972\001
 	
@@ -886,7 +898,7 @@ Private Function ProcessNoticeCommand( _
 	Dim pwszNoticeText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 	
 	If pwszNoticeText <> 0 Then
-		Dim bstrMsgTarget As ValueBSTR = Type<ValueBSTR>(*pwszMsgTarget, pwszStartIrcParam2 - pwszMsgTarget - 1)
+		Dim bstrMsgTarget As BSTR = SysAllocStringLen(pwszMsgTarget, pwszStartIrcParam2 - pwszMsgTarget - 1)
 		
 		Dim NoticeTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszNoticeText
 		
@@ -937,7 +949,7 @@ Private Function ProcessNoticeCommand( _
 			Dim pNoticeText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszNoticeText)
 			pNoticeText->Length = NoticeTextLength
 			
-			If lstrcmp(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
+			If lstrcmpW(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
 				If CUInt(pIrcClient->pEvents->lpfnNoticeEvent) Then
 					pIrcClient->pEvents->lpfnNoticeEvent(pIrcClient->lpParameter, pPrefix, *pNoticeText)
 				End If
@@ -947,7 +959,10 @@ Private Function ProcessNoticeCommand( _
 				End If
 			End If
 		End If
+		
+		SysFreeString(bstrMsgTarget)
 	End If
+	
 	Return S_OK
 	
 End Function
@@ -983,8 +998,9 @@ Private Function ProcessQuitCommand( _
 		Dim QuitText As WString Ptr = GetIrcMessageText(pwszIrcParam1)
 		
 		If QuitText = 0 Then
-			Dim MessageText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
+			Dim MessageText As BSTR = SysAllocString(EmptyString)
 			pIrcClient->pEvents->lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, MessageText)
+			SysFreeString(MessageText)
 		Else
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(QuitText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - QuitText
@@ -1011,17 +1027,22 @@ Private Function ProcessPartCommand( _
 		Dim PartText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 		
 		If PartText = 0 Then
-			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
+			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
+			Dim bstrPartText As BSTR = SysAllocString(EmptyString)
 			
-			Dim bstrPartText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
 			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrPartText)
+			
+			SysFreeString(bstrPartText)
+			SysFreeString(bstrChannel)
 		Else
-			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
+			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(PartText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - PartText
 			
 			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			
+			SysFreeString(bstrChannel)
 		End If
 	End If
 	
@@ -1089,12 +1110,14 @@ Private Function ProcessKickCommand( _
 		
 		If pwszIrcParam2 <> NULL Then
 			
-			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, pwszIrcParam2 - pwszIrcParam1 - 1)
+			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, pwszIrcParam2 - pwszIrcParam1 - 1)
 			
 			Dim pKickedNick As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 			pKickedNick->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam2
 			
 			pIrcClient->pEvents->lpfnKickEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pKickedNick)
+			
+			SysFreeString(bstrChannel)
 		End If
 	End If
 	
@@ -1134,17 +1157,22 @@ Private Function ProcessTopicCommand( _
 		Dim TopicText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 		
 		If TopicText = 0 Then
-			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
+			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
+			Dim bstrTopicText As BSTR = SysAllocString(EmptyString)
 			
-			Dim bstrTopicText As ValueBSTR = Type<ValueBSTR>(EmptyString, 0)
 			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrTopicText)
+			
+			SysFreeString(bstrTopicText)
+			SysFreeString(bstrChannel)
 		Else
-			Dim bstrChannel As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
+			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, pwszStartIrcParam2 - pwszIrcParam1 - 1)
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(TopicText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - TopicText
 			
 			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			
+			SysFreeString(bstrChannel)
 		End If
 	End If
 	
@@ -1164,12 +1192,14 @@ Private Function ProcessInviteCommand( _
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		
 		If pwszStartIrcParam2 <> NULL Then
-			Dim Target As ValueBSTR = Type<ValueBSTR>(*pwszIrcParam1)
+			Dim Target As BSTR = SysAllocString(pwszIrcParam1)
 			
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartIrcParam2)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszStartIrcParam2
 			
 			pIrcClient->pEvents->lpfnInviteEvent(pIrcClient->lpParameter, pPrefix, Target, *pMessageText)
+			
+			SysFreeString(Target)
 		End If
 	End If
 	
@@ -1229,12 +1259,14 @@ Private Function ProcessServerCommand( _
 	
 	':orwell.freenode.net 376 FreeBasicCompile :End of /MOTD command.
 	If CUInt(pIrcClient->pEvents->lpfnServerMessageEvent) Then
-		Dim bstrIrcCommand As ValueBSTR = Type<ValueBSTR>(*pwszIrcCommand)
+		Dim bstrIrcCommand As BSTR = SysAllocString(pwszIrcCommand)
 		
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 		
 		pIrcClient->pEvents->lpfnServerMessageEvent(pIrcClient->lpParameter, pPrefix, bstrIrcCommand, *pMessageText)
+		
+		SysFreeString(bstrIrcCommand)
 	End If
 	
 	Return S_OK
@@ -1248,10 +1280,12 @@ Private Function ParseData( _
 	
 	' [<colon> <IrcPrefix> <space>] <IrcCommand> [<ircparam1>]
 	
-	Dim PrefixInternal As IrcPrefixInternal = Any
-	Dim PrefixLength As Integer = GetIrcPrefixInternal(@PrefixInternal, bstrIrcMessage)
+	Dim pPrefixInternal As IrcPrefixInternal Ptr = Allocate(SizeOf(IrcPrefixInternal))
+	If pPrefixInternal = 0 Then
+		Return E_OUTOFMEMORY
+	End If
 	
-	Dim Prefix As IrcPrefix = Type<IrcPrefix>(PrefixInternal.Nick, PrefixInternal.User, PrefixInternal.Host)
+	Dim PrefixLength As Integer = GetIrcPrefixInternal(pPrefixInternal, bstrIrcMessage)
 	
 	Dim pwszIrcCommand As WString Ptr = Any
 	If PrefixLength = 0 Then
@@ -1261,6 +1295,8 @@ Private Function ParseData( _
 	End If
 	
 	Dim pwszIrcParam1 As WString Ptr = SeparateWordBySpace(pwszIrcCommand)
+	
+	Dim hrCommandProcessor As HRESULT = S_OK
 	
 	If pwszIrcParam1 <> NULL Then
 		' Dim pwszIrcParam1Length As Integer = Any
@@ -1321,20 +1357,62 @@ Private Function ParseData( _
 			End Select
 			
 			If CInt(lpCommandProcessor) <> NULL Then
-				Return lpCommandProcessor(pIrcClient, @Prefix, pwszIrcParam1, bstrIrcMessage)
+				Dim Prefix As IrcPrefix = Type<IrcPrefix>( _
+					pPrefixInternal->Nick, _
+					pPrefixInternal->User, _
+					pPrefixInternal->Host _
+				)
+				
+				hrCommandProcessor = lpCommandProcessor( _
+					pIrcClient, _
+					@Prefix, _
+					pwszIrcParam1, _
+					bstrIrcMessage _
+				)
 			End If
 			
 		Else
-			If IsNumericIrcCommand(pwszIrcCommand, pwszIrcParam1 - pwszIrcCommand - 1) Then
+			Dim resIsNumeric As Boolean = IsNumericIrcCommand( _
+				pwszIrcCommand, _
+				pwszIrcParam1 - pwszIrcCommand - 1 _
+			)
+			
+			If resIsNumeric Then
+				Dim Prefix As IrcPrefix = Type<IrcPrefix>( _
+					pPrefixInternal->Nick, _
+					pPrefixInternal->User, _
+					pPrefixInternal->Host _
+				)
+				
 				Dim IrcNumericCommand As Integer = CInt(_wtoi(pwszIrcCommand))
-				Return ProcessNumericCommand(pIrcClient, @Prefix, IrcNumericCommand, pwszIrcParam1, bstrIrcMessage)
+				
+				hrCommandProcessor = ProcessNumericCommand( _
+					pIrcClient, _
+					@Prefix, _
+					IrcNumericCommand, _
+					pwszIrcParam1, _
+					bstrIrcMessage _
+				)
 			Else
-				Return ProcessServerCommand(pIrcClient, @Prefix, pwszIrcCommand, pwszIrcParam1, bstrIrcMessage)
+				Dim Prefix As IrcPrefix = Type<IrcPrefix>( _
+					pPrefixInternal->Nick, _
+					pPrefixInternal->User, _
+					pPrefixInternal->Host _
+				)
+				hrCommandProcessor = ProcessServerCommand( _
+					pIrcClient, _
+					@Prefix, _
+					pwszIrcCommand, _
+					pwszIrcParam1, _
+					bstrIrcMessage _
+				)
 			End If
 		End If
 	End If
 	
-	Return S_OK
+	DeAllocate(pPrefixInternal)
+	
+	Return hrCommandProcessor
 	
 End Function
 
@@ -1654,9 +1732,6 @@ Private Sub ReceiveCompletionRoutine( _
 		
 		Scope
 			Dim bstrServerResponse As ValueBSTR = Any
-			' bstrServerResponse.PlaceHolder
-			' bstrServerResponse.BytesCount
-			' bstrServerResponse.WChars
 			Dim lpBuffer As LPWSTR = @bstrServerResponse.WChars(0)
 			Dim ServerResponseLength As Long = MultiByteToWideChar( _
 				pIrcClient->CodePage, _
@@ -1974,10 +2049,10 @@ Public Function IrcClientSendPing( _
 		ByVal Server As BSTR _
 	)As HRESULT
 	
-	' –û—Ç —Å–µ—Ä–≤–µ—Ä–∞:
+	' ŒÚ ÒÂ‚Â‡:
 	'PING space :<Server>
 	
-	' –û—Ç –∫–ª–∏–µ–Ω—Ç–∞:
+	' ŒÚ ÍÎËÂÌÚ‡:
 	'PING space <Server>
 	
 	If SysStringLen(Server) <> 0 Then
@@ -2607,11 +2682,11 @@ Public Function IrcClientOpenConnection( _
 	)
 	
 	Dim PortLength As UINT = SysStringLen(Port)
-	Dim bstrPort As ValueBSTR = Any
+	Dim tPort As WString Ptr = Any
 	If PortLength Then
-		bstrPort = Type<ValueBSTR>(Port)
+		tPort = Port
 	Else
-		bstrPort = Type<ValueBSTR>(WStr("6667"))
+		tPort = @WStr("6667")
 	End If
 	
 	Dim tLocalServer As WString Ptr = Any
@@ -2632,7 +2707,7 @@ Public Function IrcClientOpenConnection( _
 		tLocalServer, _
 		tLocalPort, _
 		Server, _
-		bstrPort, _
+		tPort, _
 		@pIrcClient->ClientSocket _
 	)
 	If FAILED(hrConnect) Then
