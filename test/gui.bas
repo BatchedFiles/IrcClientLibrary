@@ -25,25 +25,13 @@ Private Sub AppendLengthTextW( _
 		ByVal lpwszText As LPWSTR, _
 		ByVal Length As Integer _
 	)
-	
+
 	Dim OldTextLength As Long = GetWindowTextLengthW(hwndControl)
-	Dim NewTextLength As Long = OldTextLength + Length
-	
-	Dim lpBuffer As WCHAR Ptr = Allocate((NewTextLength + 1) * SizeOf(WCHAR))
-	
-	If lpBuffer Then
-		GetWindowTextW(hwndControl, lpBuffer, NewTextLength)
-		lstrcatW(lpBuffer, lpwszText)
-		SetWindowTextW(hwndControl, lpBuffer)
-		
-		Dim NewTextLength2 As Long = GetWindowTextLengthW(hwndControl)
-		Edit_SetSel(hwndControl, NewTextLength2, NewTextLength2)
-		
-		Edit_ScrollCaret(hwndControl)
-		
-		DeAllocate(lpBuffer)
-	End If
-	
+
+	SendMessageW(hwndControl, EM_SETSEL, OldTextLength, OldTextLength)
+	SendMessageW(hwndControl, EM_REPLACESEL, FALSE, lpwszText)
+	Edit_ScrollCaret(hwndControl)
+
 End Sub
 
 Private Sub OnNumericMessage( _
@@ -239,7 +227,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 			
 			Select Case HiWord(wParam)
 				
-				Case 0 ' Ìåíþ èëè êíîïêà
+				Case 0 ' ÃŒÃ¥Ã­Ã¾ Ã¨Ã«Ã¨ ÃªÃ­Ã®Ã¯ÃªÃ 
 					
 					Select Case LoWord(wParam)
 						
