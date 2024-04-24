@@ -40,13 +40,13 @@ Private Sub OnNumericMessage( _
 		ByVal IrcNumericCommand As Integer, _
 		ByVal MessageText As BSTR _
 	)
-	
+
 	Dim pContext As WindowContext Ptr = pClientData
-	
+
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
 		IrcClientJoinChannel(pContext->pClient, pContext->Channel)
 	End If
-	
+
 End Sub
 
 Private Sub OnIrcPrivateMessage( _
@@ -54,13 +54,13 @@ Private Sub OnIrcPrivateMessage( _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	
+
 	Dim pContext As WindowContext Ptr = pClientData
-	
+
 	Dim Message As BSTR = SysAllocString(WStr("Yes, me too"))
 	IrcClientSendPrivateMessage(pContext->pClient, pIrcPrefix->Nick, Message)
 	SysFreeString(Message)
-	
+
 End Sub
 
 Private Sub OnRawMessage( _
@@ -68,11 +68,11 @@ Private Sub OnRawMessage( _
 		ByVal pBytes As Const UByte Ptr, _
 		ByVal Count As Integer _
 	)
-	
+
 	Const NewLine = !"\r\n"
-	
+
 	Dim pContext As WindowContext Ptr = pClientData
-	
+
 	Dim buf As WString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1) = Any
 	Dim Length As Long = MultiByteToWideChar( _
 		CP_UTF8, _
@@ -83,26 +83,26 @@ Private Sub OnRawMessage( _
 		IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM _
 	)
 	buf[Length] = 0
-	
-	lstrcatW(@buf, @WStr(NewLine))	
-	
+
+	lstrcatW(@buf, @WStr(NewLine))
+
 	AppendLengthTextW(pContext->hWndReceive, @buf, Length + Len(NewLine))
-	
+
 End Sub
 
 Private Function MessageLoop( _
 		ByVal hWin As HWND, _
 		ByVal pContext As WindowContext Ptr _
 	)As Integer
-	
+
 	Do
 		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pContext->pClient)
-		
+
 		If FAILED(hrLoop) Then
 			IrcClientCloseConnection(pContext->pClient)
 			Return 1
 		End If
-		
+
 		Select Case hrLoop
 			Case S_OK
 				Do
@@ -117,57 +117,57 @@ Private Function MessageLoop( _
 					If resGetMessage = 0 Then
 						Exit Do
 					End If
-					
+
 					If wMsg.message = WM_QUIT Then
 						PostQuitMessage(wMsg.wParam)
 						Return 0
 					End If
-					
+
 					Dim resDialogMessage As BOOL = IsDialogMessage( _
 						hWin, _
 						@wMsg _
 					)
-					
+
 					If resDialogMessage = 0 Then
 						TranslateMessage(@wMsg)
 						DispatchMessage(@wMsg)
 					End If
 				Loop
-				
+
 			Case Else ' S_FALSE
 				IrcClientCloseConnection(pContext->pClient)
 				Return 0
 		End Select
 	Loop
-	
+
 End Function
 
 Private Sub DisableWindow( _
 		ByVal hWin As HWND, _
 		ByVal hwndControl As HWND _
 	)
-	
+
 	' Disabling a window correctly
 	Dim hwndFocus As HWND = GetFocus()
-	
+
 	If hwndFocus = hwndControl Then
 		' giving focus to another window
 		SendMessage(hWin, WM_NEXTDLGCTL, 0, 0)
 	End If
-	
+
 	EnableWindow(hwndControl, 0)
-	
+
 End Sub
 
 Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
-	
+
 	Dim pContext As WindowContext Ptr = Any
-	
+
 	If wMsg = WM_CREATE Then
 		Dim pStruct As CREATESTRUCT Ptr = CPtr(CREATESTRUCT Ptr, lParam)
 		pContext = pStruct->lpCreateParams
 		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pContext))
-		
+
 		pContext->hWndStart = CreateWindowEx(0, _
 			WC_BUTTON, _
 			"Start", _
@@ -192,45 +192,45 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 			WC_EDIT, _
 			NULL, _
 			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
-			10, 56, 640, 480, _
+			10, 56, (640 * 3) \ 2, (480 * 3) \ 2, _
 			hWin, _
 			Cast(HMENU, IDC_RECEIVE), _
 			GetModuleHandle(0), _
 			NULL _
 		)
-		
+
 		ZeroMemory(@pContext->Ev, SizeOf(IrcEvents))
 		pContext->Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 		pContext->Ev.lpfnNumericMessageEvent = @OnNumericMessage
 		pContext->Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
 		pContext->Ev.lpfnSendedRawMessageEvent = @OnRawMessage
-		
+
 		pContext->pClient = CreateIrcClient()
 		IrcClientSetCallback(pContext->pClient, @pContext->Ev, pContext)
-		
+
 		Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
 		IrcClientSetClientVersion(pContext->pClient, ClientVersion)
 		SysFreeString(ClientVersion)
-		
+
 		Dim UserInfo As BSTR = SysAllocString(WStr("zamabuvaraeu"))
 		IrcClientSetUserInfo(pContext->pClient, UserInfo)
 		SysFreeString(UserInfo)
-		
+
 		Return 0
 	End If
-	
+
 	pContext = Cast(Any Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-	
+
 	Select Case wMsg
-		
+
 		Case WM_COMMAND
-			
+
 			Select Case HiWord(wParam)
-				
-				Case 0 ' ÃŒÃ¥Ã­Ã¾ Ã¨Ã«Ã¨ ÃªÃ­Ã®Ã¯ÃªÃ 
-					
+
+				Case 0 ' Ìåíþ èëè êíîïêà
+
 					Select Case LoWord(wParam)
-						
+
 						Case IDC_START
 							Dim hrOpen As HRESULT = IrcClientOpenConnectionSimple2( _
 								pContext->pClient, _
@@ -238,37 +238,72 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 								pContext->Port, _
 								pContext->Nick _
 							)
-							
+
 							If SUCCEEDED(hrOpen) Then
 								DisableWindow(hWin, pContext->hWndStart)
 								EnableWindow(pContext->hwndStop, 1)
-								
+
 								MessageLoop(hWin, pContext)
-								
+
 								EnableWindow(pContext->hWndStart, 1)
 								DisableWindow(hWin, pContext->hwndStop)
 							End If
-							
+
 						Case IDC_STOP
 							IrcClientQuitFromServerSimple(pContext->pClient)
 							EnableWindow(pContext->hWndStart, 1)
 							DisableWindow(hWin, pContext->hwndStop)
-							
+
 					End Select
-					
+
 			End Select
-			
+
 		Case WM_DESTROY
 			DestroyIrcClient(pContext->pClient)
 			PostQuitMessage(0)
-			
+
 		Case Else
 			Return DefWindowProc(hWin, wMsg, wParam, lParam)
-			
+
 	End Select
-	
+
 	Return 0
-	
+
+End Function
+
+Private Function EnableVisualStyles()As HRESULT
+
+	' Only for Win95
+	InitCommonControls()
+
+	' Dim icc As INITCOMMONCONTROLSEX = Any
+	' icc.dwSize = SizeOf(INITCOMMONCONTROLSEX)
+	' icc.dwICC = ICC_ANIMATE_CLASS Or _
+	' 	ICC_BAR_CLASSES Or _
+	' 	ICC_COOL_CLASSES Or _
+	' 	ICC_DATE_CLASSES Or _
+	' 	ICC_HOTKEY_CLASS Or _
+	' 	ICC_INTERNET_CLASSES Or _
+	' 	ICC_LINK_CLASS Or _
+	' 	ICC_LISTVIEW_CLASSES Or _
+	' 	ICC_NATIVEFNTCTL_CLASS Or _
+	' 	ICC_PAGESCROLLER_CLASS Or _
+	' 	ICC_PROGRESS_CLASS Or _
+	' 	ICC_STANDARD_CLASSES Or _
+	' 	ICC_TAB_CLASSES Or _
+	' 	ICC_TREEVIEW_CLASSES Or _
+	' 	ICC_UPDOWN_CLASS Or _
+	' 	ICC_USEREX_CLASSES Or _
+	' ICC_WIN95_CLASSES
+
+	' Dim res As BOOL = InitCommonControlsEx(@icc)
+	' If res = 0 Then
+	' 	Dim dwError As DWORD = GetLastError()
+	' 	Return HRESULT_FROM_WIN32(dwError)
+	' End If
+
+	Return S_OK
+
 End Function
 
 Private Function wWinMain( _
@@ -277,10 +312,12 @@ Private Function wWinMain( _
 		ByVal lpCmdLine As LPCWSTR, _
 		ByVal iCmdShow As Long _
 	)As Integer
-	
+
 	Const NineWindowTitle = "IrcClient"
 	Const MainWindowClassName = "IrcClient"
-	
+
+	EnableVisualStyles()
+
 	Dim wcls As WNDCLASSEX = Any
 	With wcls
 		.cbSize        = SizeOf(WNDCLASSEX)
@@ -296,23 +333,27 @@ Private Function wWinMain( _
 		.lpszClassName = @MainWindowClassName
 		.hIconSm       = NULL
 	End With
-	
+
 	If RegisterClassEx(@wcls) = FALSE Then
 		Return 1
 	End If
-	
+
 	Dim Argc As Long = Any
 	Dim Args As LPWSTR Ptr = CommandLineToArgvW( _
 		lpCmdLine, _
 		@Argc _
 	)
-	
+
+	If Argc <> 5 Then
+		Return 1
+	End If
+
 	Dim Context As WindowContext = Any
 	Context.Server = SysAllocString(Args[1])
 	Context.Port = SysAllocString(Args[2])
 	Context.Nick = SysAllocString(Args[3])
 	Context.Channel = SysAllocString(Args[4])
-	
+
 	Dim hWin As HWND = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, _
 		@MainWindowClassName, _
 		@NineWindowTitle, _
@@ -326,37 +367,51 @@ Private Function wWinMain( _
 	If hWin = NULL Then
 		Return 1
 	End If
-	
+
 	ShowWindow(hWin, iCmdShow)
 	UpdateWindow(hWin)
-	
+
 	Dim m As MSG = Any
 	Dim GetMessageResult As Integer = GetMessage(@m, NULL, 0, 0)
-	
+
 	Do While GetMessageResult <> 0
-		
+
 		If GetMessageResult = -1 Then
 			Return 1
 		End If
-		
+
 		Dim resDialogMessage As BOOL = IsDialogMessage( _
 			hWin, _
 			@m _
 		)
-		
+
 		If resDialogMessage = 0 Then
 			TranslateMessage(@m)
 			DispatchMessage(@m)
 		End If
-		
+
 		GetMessageResult = GetMessage(@m, NULL, 0, 0)
-		
+
 	Loop
-	
+
 	Return m.WPARAM
-	
+
 End Function
 
-Dim lpCmdLine As WCHAR Ptr = GetCommandLineW()
-Dim WinMainResult As Integer = wWinMain(GetModuleHandle(0), NULL, lpCmdLine, SW_SHOW)
-End(WinMainResult)
+#ifndef WITHOUT_RUNTIME
+Private Function EntryPoint()As Integer
+#else
+Public Function EntryPoint Alias "EntryPoint"()As Integer
+#endif
+
+	Dim lpCmdLine As WCHAR Ptr = GetCommandLineW()
+	Dim WinMainResult As Integer = wWinMain(GetModuleHandle(0), NULL, lpCmdLine, SW_SHOW)
+
+	Return WinMainResult
+
+End Function
+
+#ifndef WITHOUT_RUNTIME
+Dim RetCode As Long = CLng(EntryPoint())
+End(RetCode)
+#endif
