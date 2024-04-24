@@ -54,6 +54,7 @@
 				"-i", "src",
 				"-s", "gui",
 				"test\\gui.bas",
+				"test\\Resources.RC",
 				"src\\IrcClient.bas"
 			],
 			"problemMatcher": [],
