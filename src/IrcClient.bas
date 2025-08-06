@@ -60,8 +60,6 @@ Const SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM = IRCPROTOCOL_BYTESPERMESSAGEMAXIMU
 
 Const SendBuffersCount = 2
 
-Const CrLfALength = 2
-
 Enum IrcCommand
 	Ping
 	PrivateMessage
@@ -1722,7 +1720,7 @@ Private Sub ReceiveCompletionRoutine( _
 
 		If pContext->cbLength >= IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM Then
 			FindCrLfResult = True
-			CrLfIndex = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 2
+			CrLfIndex = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(NewLineString)
 			pContext->cbLength = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
 		End If
 
@@ -1770,12 +1768,12 @@ Private Sub ReceiveCompletionRoutine( _
 		End Scope
 
 		Scope
-			Dim NewStartingIndex As Integer = CrLfIndex + 2
+			Dim NewStartingIndex As Integer = CrLfIndex + Len(NewLineString)
 
 			If NewStartingIndex = pContext->cbLength Then
 				pContext->cbLength = 0
 			Else
-				memmove( _
+				MoveMemory( _
 					@pContext->Buffer, _
 					@pContext->Buffer[NewStartingIndex], _
 					IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - NewStartingIndex + 1 _
@@ -1906,7 +1904,7 @@ Private Function StartSendOverlapped( _
 	SendBuf.Bytes.len = Cast(ULONG, min(pContext->cbLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
 	SendBuf.Bytes.buf = @pContext->Buffer
 
-	SendBuf.CrLf.len = CrLfALength
+	SendBuf.CrLf.len = Len(NewLineString)
 	SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
 
 	Const dwSendFlags As DWORD = 0
