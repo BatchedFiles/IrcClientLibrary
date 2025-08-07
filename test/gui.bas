@@ -20,16 +20,15 @@ Type WindowContext
 	Ev As IrcEvents
 End Type
 
-Private Sub AppendLengthTextW( _
+Private Sub AppendLengthText( _
 		ByVal hwndControl As HWND, _
-		ByVal lpwszText As LPWSTR, _
-		ByVal Length As Integer _
+		ByVal lptszText As LPTSTR _
 	)
 
-	Dim OldTextLength As Long = GetWindowTextLengthW(hwndControl)
+	Dim OldTextLength As Long = GetWindowTextLength(hwndControl)
 
-	SendMessageW(hwndControl, EM_SETSEL, OldTextLength, OldTextLength)
-	SendMessageW(hwndControl, EM_REPLACESEL, FALSE, lpwszText)
+	Edit_SetSel(hwndControl, OldTextLength, OldTextLength)
+	Edit_ReplaceSel(hwndControl, lptszText)
 	Edit_ScrollCaret(hwndControl)
 
 End Sub
@@ -86,7 +85,7 @@ Private Sub OnRawMessage( _
 
 	lstrcatW(@buf, @WStr(NewLine))
 
-	AppendLengthTextW(pContext->hWndReceive, @buf, Length + Len(NewLine))
+	AppendLengthText(pContext->hWndReceive, @buf(0))
 
 End Sub
 
@@ -227,7 +226,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 
 			Select Case HiWord(wParam)
 
-				Case 0 ' Меню или кнопка
+				Case 0 ' ???? ??? ??????
 
 					Select Case LoWord(wParam)
 
