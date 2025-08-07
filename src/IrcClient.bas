@@ -2784,7 +2784,7 @@ Public Function IrcClientMainLoop( _
 
 End Function
 
-Public Function IrcClientMsgMainLoop( _
+Public Function IrcClientWaitMessage( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 

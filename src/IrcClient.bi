@@ -157,7 +157,7 @@ Declare Function IrcClientMainLoop( _
 	ByVal pIrcClient As IrcClient Ptr _
 )As HRESULT
 
-Declare Function IrcClientMsgMainLoop( _
+Declare Function IrcClientWaitMessage( _
 	ByVal pIrcClient As IrcClient Ptr _
 )As HRESULT
 

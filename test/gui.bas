@@ -101,7 +101,7 @@ Private Function MessageLoop( _
 	)As Integer
 
 	Do
-		Dim hrLoop As HRESULT = IrcClientMsgMainLoop(pContext->pClient)
+		Dim hrLoop As HRESULT = IrcClientWaitMessage(pContext->pClient)
 
 		If FAILED(hrLoop) Then
 			IrcClientCloseConnection(pContext->pClient)
