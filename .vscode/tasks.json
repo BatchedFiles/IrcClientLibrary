@@ -53,6 +53,7 @@
 				"all",
 				"-i", "src",
 				"-s", "gui",
+				"-d", "UNICODE",
 				"test\\gui.bas",
 				"test\\Resources.RC",
 				"src\\IrcClient.bas"
