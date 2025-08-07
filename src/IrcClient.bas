@@ -60,7 +60,7 @@ Const SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM = IRCPROTOCOL_BYTESPERMESSAGEMAXIMU
 
 Const SendBuffersCount = 2
 
-Enum IrcCommand
+Enum IrcCommands
 	Ping
 	PrivateMessage
 	Join
@@ -77,7 +77,7 @@ Enum IrcCommand
 	SQuit
 End Enum
 
-Enum CtcpMessageKind
+Enum CtcpCommands
 	Ping
 	Action
 	Time
@@ -373,13 +373,13 @@ End Function
 
 Private Function GetIrcCommand( _
 		ByVal w As WString Ptr, _
-		ByVal pIrcCommand As IrcCommand Ptr _
+		ByVal pIrcCommand As IrcCommands Ptr _
 	)As Boolean
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(PingString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Ping
+			*pIrcCommand = IrcCommands.Ping
 			Return True
 		End If
 	End Scope
@@ -387,7 +387,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(PrivateMessage))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.PrivateMessage
+			*pIrcCommand = IrcCommands.PrivateMessage
 			Return True
 		End If
 	End Scope
@@ -395,7 +395,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(JoinString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Join
+			*pIrcCommand = IrcCommands.Join
 			Return True
 		End If
 	End Scope
@@ -403,7 +403,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(QuitString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Quit
+			*pIrcCommand = IrcCommands.Quit
 			Return True
 		End If
 	End Scope
@@ -411,7 +411,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(PartString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Part
+			*pIrcCommand = IrcCommands.Part
 			Return True
 		End If
 	End Scope
@@ -419,7 +419,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(NoticeString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Notice
+			*pIrcCommand = IrcCommands.Notice
 			Return True
 		End If
 	End Scope
@@ -427,7 +427,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(NickString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Nick
+			*pIrcCommand = IrcCommands.Nick
 			Return True
 		End If
 	End Scope
@@ -435,7 +435,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(ErrorString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Error
+			*pIrcCommand = IrcCommands.Error
 			Return True
 		End If
 	End Scope
@@ -443,7 +443,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(KickString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Kick
+			*pIrcCommand = IrcCommands.Kick
 			Return True
 		End If
 	End Scope
@@ -451,7 +451,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(ModeString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Mode
+			*pIrcCommand = IrcCommands.Mode
 			Return True
 		End If
 	End Scope
@@ -459,7 +459,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(TopicString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Topic
+			*pIrcCommand = IrcCommands.Topic
 			Return True
 		End If
 	End Scope
@@ -467,7 +467,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(InviteString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Invite
+			*pIrcCommand = IrcCommands.Invite
 			Return True
 		End If
 	End Scope
@@ -475,7 +475,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(PongString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.Pong
+			*pIrcCommand = IrcCommands.Pong
 			Return True
 		End If
 	End Scope
@@ -483,7 +483,7 @@ Private Function GetIrcCommand( _
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(SQuitString))
 		If resCompare = 0 Then
-			*pIrcCommand = IrcCommand.SQuit
+			*pIrcCommand = IrcCommands.SQuit
 			Return True
 		End If
 	End Scope
@@ -564,44 +564,44 @@ End Function
 
 Private Function GetCtcpCommand( _
 		ByVal w As WString Ptr _
-	)As CtcpMessageKind
+	)As CtcpCommands
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(PingString))
 		If resCompare = 0 Then
-			Return CtcpMessageKind.Ping
+			Return CtcpCommands.Ping
 		End If
 	End Scope
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(ActionString))
 		If resCompare = 0 Then
-			Return CtcpMessageKind.Action
+			Return CtcpCommands.Action
 		End If
 	End Scope
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(UserInfoString))
 		If resCompare = 0 Then
-			Return CtcpMessageKind.UserInfo
+			Return CtcpCommands.UserInfo
 		End If
 	End Scope
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(TimeString))
 		If resCompare = 0 Then
-			Return CtcpMessageKind.Time
+			Return CtcpCommands.Time
 		End If
 	End Scope
 
 	Scope
 		Dim resCompare As Long = lstrcmpW(w, @WStr(VersionString))
 		If resCompare = 0 Then
-			Return CtcpMessageKind.Version
+			Return CtcpCommands.Version
 		End If
 	End Scope
 
-	Return CtcpMessageKind.None
+	Return CtcpCommands.None
 
 End Function
 
@@ -774,7 +774,7 @@ Private Function ProcessPrivateMessageCommand( _
 
 			Select Case GetCtcpCommand(pwszMessageText)
 
-				Case CtcpMessageKind.Ping
+				Case CtcpCommands.Ping
 					':Angel!wings@irc.org PRIVMSG Qubick :\001PING 1402355972\001
 					If pwszStartCtcpParam <> NULL Then
 						Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
@@ -787,7 +787,7 @@ Private Function ProcessPrivateMessageCommand( _
 						End If
 					End If
 
-				Case CtcpMessageKind.Action
+				Case CtcpCommands.Action
 					':Angel!wings@irc.org PRIVMSG Qubick :\001ACTION Any Text\001
 					If pwszStartCtcpParam <> NULL Then
 						If CUInt(pIrcClient->pEvents->lpfnCtcpActionEvent) Then
@@ -799,7 +799,7 @@ Private Function ProcessPrivateMessageCommand( _
 						End If
 					End If
 
-				Case CtcpMessageKind.UserInfo
+				Case CtcpCommands.UserInfo
 					':Angel!wings@irc.org PRIVMSG Qubick :\001USERINFO\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientUserInfo) <> 0 Then
@@ -809,7 +809,7 @@ Private Function ProcessPrivateMessageCommand( _
 						pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 
-				Case CtcpMessageKind.Time
+				Case CtcpCommands.Time
 					':Angel!wings@irc.org PRIVMSG Qubick :\001TIME\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpTimeRequestEvent) = 0 Then
 						' Tue, 15 Nov 1994 12:45:26 GMT
@@ -847,7 +847,7 @@ Private Function ProcessPrivateMessageCommand( _
 						pIrcClient->pEvents->lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 
-				Case CtcpMessageKind.Version
+				Case CtcpCommands.Version
 					':Angel!wings@irc.org PRIVMSG Qubick :\001VERSION\001
 					If CUInt(pIrcClient->pEvents->lpfnCtcpVersionRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientVersion) <> 0 Then
@@ -916,25 +916,25 @@ Private Function ProcessNoticeCommand( _
 
 				Select Case GetCtcpCommand(pwszNoticeText)
 
-					Case CtcpMessageKind.Ping
+					Case CtcpCommands.Ping
 						If CUInt(pIrcClient->pEvents->lpfnCtcpPingResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(PingStringWithSpace)
 							pIrcClient->pEvents->lpfnCtcpPingResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
-					Case CtcpMessageKind.UserInfo
+					Case CtcpCommands.UserInfo
 						If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(UserInfoStringWithSpace)
 							pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
-					Case CtcpMessageKind.Time
+					Case CtcpCommands.Time
 						If CUInt(pIrcClient->pEvents->lpfnCtcpTimeResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(TimeStringWithSpace)
 							pIrcClient->pEvents->lpfnCtcpTimeResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
-					Case CtcpMessageKind.Version
+					Case CtcpCommands.Version
 						If CUInt(pIrcClient->pEvents->lpfnCtcpVersionResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(VersionStringWithSpace)
 							pIrcClient->pEvents->lpfnCtcpVersionResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
@@ -1299,7 +1299,7 @@ Private Function ParseData( _
 	If pwszIrcParam1 <> NULL Then
 		' Dim pwszIrcParam1Length As Integer = Any
 
-		Dim comm As IrcCommand = Any
+		Dim comm As IrcCommands = Any
 		Dim commResult As Boolean = GetIrcCommand(pwszIrcCommand, @comm)
 
 		If commResult Then
@@ -1307,46 +1307,46 @@ Private Function ParseData( _
 
 			Select Case comm
 
-				Case IrcCommand.Ping
+				Case IrcCommands.Ping
 					lpCommandProcessor = @ProcessPingCommand
 
-				Case IrcCommand.PrivateMessage
+				Case IrcCommands.PrivateMessage
 					lpCommandProcessor = @ProcessPrivateMessageCommand
 
-				Case IrcCommand.Join
+				Case IrcCommands.Join
 					lpCommandProcessor = @ProcessJoinCommand
 
-				Case IrcCommand.Quit
+				Case IrcCommands.Quit
 					lpCommandProcessor = @ProcessQuitCommand
 
-				Case IrcCommand.Part
+				Case IrcCommands.Part
 					lpCommandProcessor = @ProcessPartCommand
 
-				Case IrcCommand.Notice
+				Case IrcCommands.Notice
 					lpCommandProcessor = @ProcessNoticeCommand
 
-				Case IrcCommand.Nick
+				Case IrcCommands.Nick
 					lpCommandProcessor = @ProcessNickCommand
 
-				Case IrcCommand.Error
+				Case IrcCommands.Error
 					lpCommandProcessor = @ProcessErrorCommand
 
-				Case IrcCommand.Kick
+				Case IrcCommands.Kick
 					lpCommandProcessor = @ProcessKickCommand
 
-				Case IrcCommand.Mode
+				Case IrcCommands.Mode
 					lpCommandProcessor = @ProcessModeCommand
 
-				Case IrcCommand.Topic
+				Case IrcCommands.Topic
 					lpCommandProcessor = @ProcessTopicCommand
 
-				Case IrcCommand.Invite
+				Case IrcCommands.Invite
 					lpCommandProcessor = @ProcessInviteCommand
 
-				Case IrcCommand.Pong
+				Case IrcCommands.Pong
 					lpCommandProcessor = @ProcessPongCommand
 
-				Case IrcCommand.SQuit
+				Case IrcCommands.SQuit
 					lpCommandProcessor = @ProcessQuitCommand
 
 				Case Else
