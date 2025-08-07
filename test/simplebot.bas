@@ -29,3 +29,4 @@ IrcClientJoinChannel(pClient, SysAllocString("#chlor"))
 IrcClientMainLoop(pClient)
 
 IrcClientCloseConnection(pClient)
+DestroyIrcClient(pClient)
