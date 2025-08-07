@@ -7,6 +7,8 @@
 Const IDC_RECEIVE = 1002
 Const IDC_START = 1003
 Const IDC_STOP = 1004
+Const IDC_MESSAGE = 1005
+Const IDC_SEND = 1006
 
 Type WindowContext
 	pClient As IrcClient Ptr
@@ -17,6 +19,8 @@ Type WindowContext
 	hWndReceive As HWND
 	hWndStart As HWND
 	hWndStop As HWND
+	hWndMessage As HWND
+	hWndSend As HWND
 	Ev As IrcEvents
 End Type
 
@@ -196,10 +200,30 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndReceive = CreateWindowEx(0, _
 			WC_EDIT, _
 			NULL, _
-			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
-			10, 56, (640 * 3) \ 2, (480 * 3) \ 2, _
+			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE Or ES_READONLY, _
+			10, 56, 640, 480, _
 			hWin, _
 			Cast(HMENU, IDC_RECEIVE), _
+			GetModuleHandle(0), _
+			NULL _
+		)
+		pContext->hWndMessage = CreateWindowEx(0, _
+			WC_EDIT, _
+			NULL, _
+			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
+			10, 56 + 480 + 10, 640 - 120 - 10, 120, _
+			hWin, _
+			Cast(HMENU, IDC_MESSAGE), _
+			GetModuleHandle(0), _
+			NULL _
+		)
+		pContext->hWndSend = CreateWindowEx(0, _
+			WC_BUTTON, _
+			"Send", _
+			WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			10 + 640 - 120 - 10 + 10, 56 + 480 + 10 + 10, 120, 36, _
+			hWin, _
+			Cast(HMENU, IDC_SEND), _
 			GetModuleHandle(0), _
 			NULL _
 		)
@@ -247,11 +271,13 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 							If SUCCEEDED(hrOpen) Then
 								DisableWindow(hWin, pContext->hWndStart)
 								EnableWindow(pContext->hwndStop, 1)
+								EnableWindow(pContext->hwndSend, 1)
 
 								MessageLoop(hWin, pContext)
 
 								EnableWindow(pContext->hWndStart, 1)
 								DisableWindow(hWin, pContext->hwndStop)
+								DisableWindow(hWin, pContext->hwndSend)
 							End If
 
 						Case IDC_STOP
@@ -259,6 +285,30 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 							EnableWindow(pContext->hWndStart, 1)
 							DisableWindow(hWin, pContext->hwndStop)
 
+						Case IDC_SEND
+							Dim buf(IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM) As TCHAR = Any
+							Dim res As Long = GetWindowText( _
+								pContext->hwndMessage, _
+								@buf(0), _
+								IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 1 _
+							)
+
+							If res Then
+								Dim bstrMessage As BSTR = SysAllocString(@buf(0))
+
+								If bstrMessage Then
+									IrcClientSendPrivateMessage( _
+										pContext->pClient, _
+										pContext->Channel, _
+										bstrMessage _
+									)
+									SysFreeString(bstrMessage)
+									Edit_SetText( _
+										pContext->hwndMessage, _
+										NULL _
+									)
+								End If
+							End If
 					End Select
 
 			End Select
@@ -333,7 +383,7 @@ Private Function wWinMain( _
 		.hInstance     = hInst
 		.hIcon         = NULL
 		.hCursor       = LoadCursor(NULL, IDC_ARROW)
-		.hbrBackground = Cast(HBRUSH, COLOR_BTNFACE + 1)
+		.hbrBackground = Cast(HBRUSH, COLOR_WINDOW + 1)
 		.lpszMenuName  = Cast(TCHAR Ptr, NULL)
 		.lpszClassName = @MainWindowClassName
 		.hIconSm       = NULL
