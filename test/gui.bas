@@ -68,22 +68,28 @@ Private Sub OnRawMessage( _
 		ByVal Count As Integer _
 	)
 
-	Const NewLine = !"\r\n"
+	Const NewLine = __TEXT(!"\r\n")
 
 	Dim pContext As WindowContext Ptr = pClientData
 
-	Dim buf As WString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1) = Any
-	Dim Length As Long = MultiByteToWideChar( _
-		CP_UTF8, _
-		0, _
-		pBytes, _
-		Count, _
-		@buf, _
-		IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM _
-	)
-	buf[Length] = 0
+	Dim buf(IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM) As TCHAR = Any
 
-	lstrcatW(@buf, @WStr(NewLine))
+	#ifdef UNICODE
+		Dim Length As Long = MultiByteToWideChar( _
+			CP_UTF8, _
+			0, _
+			pBytes, _
+			Count, _
+			@buf(0), _
+			IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM _
+		)
+		buf(Length) = 0
+	#else
+		CopyMemory(@buf(0), pBytes, Count)
+		buf(Count) = 0
+	#endif
+
+	lstrcat(@buf(0), @NewLine)
 
 	AppendLengthText(pContext->hWndReceive, @buf(0))
 
@@ -312,8 +318,8 @@ Private Function wWinMain( _
 		ByVal iCmdShow As Long _
 	)As Integer
 
-	Const NineWindowTitle = "IrcClient"
-	Const MainWindowClassName = "IrcClient"
+	Const NineWindowTitle = __TEXT("IrcClient")
+	Const MainWindowClassName = __TEXT("IrcClient")
 
 	EnableVisualStyles()
 
