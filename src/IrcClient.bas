@@ -2746,7 +2746,7 @@ Public Function IrcClientMainLoop( _
 	Do
 		Dim dwWaitResult As DWORD = WaitForSingleObjectEx( _
 			pIrcClient->hEvent, _
-			TenMinutesInMilliSeconds, _
+			INFINITE, _
 			TRUE _
 		)
 
@@ -2791,7 +2791,7 @@ Public Function IrcClientWaitMessage( _
 	Dim dwWaitResult As DWORD = MsgWaitForMultipleObjectsEx( _
 		1, _
 		@pIrcClient->hEvent, _
-		TenMinutesInMilliSeconds, _
+		INFINITE, _
 		QS_ALLEVENTS Or QS_ALLINPUT Or QS_ALLPOSTMESSAGE, _
 		MWMO_ALERTABLE Or MWMO_INPUTAVAILABLE _
 	)
