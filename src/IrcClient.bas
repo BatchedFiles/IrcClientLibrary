@@ -2709,21 +2709,27 @@ Public Function IrcClientOpenConnection( _
 		@pIrcClient->ClientSocket _
 	)
 	If FAILED(hrConnect) Then
+		pIrcClient->ErrorCode = hrConnect
 		Return hrConnect
+	End If
+
+	Dim hrRecv As HRESULT = StartRecvOverlapped(pIrcClient)
+	If FAILED(hrRecv) Then
+		CloseSocketConnection(pIrcClient->ClientSocket)
+		pIrcClient->ErrorCode = hrRecv
+		Return hrRecv
 	End If
 
 	Dim hrSend As HRESULT = StartSendOverlapped(pIrcClient, ConnectionString)
 	If FAILED(hrSend) Then
 		CloseSocketConnection(pIrcClient->ClientSocket)
+		pIrcClient->ErrorCode = hrSend
 		Return hrSend
 	End If
 
-	Dim hrRecv As HRESULT = StartRecvOverlapped(pIrcClient)
-	If FAILED(hrSend) Then
-		CloseSocketConnection(pIrcClient->ClientSocket)
-	End If
+	pIrcClient->ErrorCode = S_OK
 
-	Return hrRecv
+	Return S_OK
 
 End Function
 
