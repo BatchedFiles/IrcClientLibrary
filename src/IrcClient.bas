@@ -1,10 +1,55 @@
 #include once "IrcClient.bi"
+#include once "win\mswsock.bi"
 #include once "win\shlwapi.bi"
 #include once "win\winsock2.bi"
 #include once "win\ws2tcpip.bi"
 #include once "CharacterConstants.bi"
 
-Const TenMinutesInMilliSeconds As DWORD = 10 * 60 * 1000
+' HACK for Win95
+#ifdef Allocate
+#undef Allocate
+#endif
+#ifdef DeAllocate
+#undef DeAllocate
+#endif
+#ifdef RtlCopyMemory
+#undef RtlCopyMemory
+#endif
+#ifdef RtlMoveMemory
+#undef RtlMoveMemory
+#endif
+#ifdef RtlZeroMemory
+#undef RtlZeroMemory
+#endif
+#ifdef CopyMemory
+#undef CopyMemory
+#endif
+#ifdef MoveMemory
+#undef MoveMemory
+#endif
+#ifdef ZeroMemory
+#undef ZeroMemory
+#endif
+
+Declare Sub RtlCopyMemory Alias "RtlCopyMemory"( _
+	ByVal Destination As Any Ptr, _
+	ByVal Source As Const Any Ptr, _
+	ByVal Length As Integer _
+)
+Declare Sub RtlMoveMemory Alias "RtlMoveMemory"( _
+	ByVal Destination As Any Ptr, _
+	ByVal Source As Const Any Ptr, _
+	ByVal Length As Integer _
+)
+Declare Sub RtlZeroMemory Alias "RtlZeroMemory"( _
+	ByVal Destination As Any Ptr, _
+	ByVal Length As Integer _
+)
+#define Allocate(dwBytes) HeapAlloc(GetProcessHeap(), 0, (dwBytes))
+#define DeAllocate(lpMem) HeapFree(GetProcessHeap(), 0, (lpMem))
+#define CopyMemory(d, s, l) RtlCopyMemory((d), (s), (l))
+#define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
+#define ZeroMemory(d, l) RtlZeroMemory((d), (l))
 
 Const EmptyString = ""
 
