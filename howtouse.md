@@ -2,44 +2,68 @@
 
 ## Константы
 
-
 ### IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM
 
 Максимальное количество байт, которое может занимать одно IRC‐сообщение вместе с символами CrLf.
 
 ```FreeBASIC
-Const IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM As Integer = 512
+Const IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM = 512
 ```
 
 Длина строки измеряется в символах, а размер одного символа не всегда равен одному байту. Для кодировки UTF-8 размер одного символа может быть от одного до шести байт.
-
 
 ### IRCPROTOCOL_DEFAULTPORT
 
 Стандартный порт по умолчанию для соединения с сервером.
 
 ```FreeBASIC
-Const DefaultServerPort As Integer = 6667
+Const IRCPROTOCOL_DEFAULTPORT = 6667
 ```
 
 
-## Поля
+## Функции
 
+### CreateIrcClient
 
-### AdvancedClientData
-
-Дополнительное поле для хранения указателя на любые данные. Этот указатель будет отправляться в каждом событии, генерируемом классом `IrcClient`.
+Создаёт объект `IrcClient` и возвращает указатель на него.
 
 ```FreeBASIC
-Dim AdvancedClientData As LPCLIENTDATA
+Declare Function CreateIrcClient() As IrcClient Ptr
 ```
 
-### CodePage
+В случае ошибки возвращает 0.
 
-Номер кодировочной таблицы, используемой для преобразования байт в строку.
+### DestroyIrcClient
+
+Уничтожает объект `IrcClient`.
 
 ```FreeBASIC
-Dim CodePage As Integer
+Declare Sub DestroyIrcClient( _
+	ByVal pIrcClient As IrcClient Ptr _
+)
+```
+
+### IrcClientSetCallback
+
+Устанавливает обработчики событий.
+
+```FreeBASIC
+Declare Function IrcClientSetCallback( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pEvents As IrcEvents Ptr, _
+	ByVal lpParameter As LPCLIENTDATA _
+)As HRESULT
+```
+
+### IrcClientGetCodePage
+
+Получает номер кодировочной таблицы, используемой для преобразования байт в строку.
+
+```FreeBASIC
+Declare Function IrcClientGetCodePage( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal pCodePage As Integer Ptr _
+)As HRESULT
 ```
 
 В стандарте IRC‐протокола не определено, каким образом строки будут преобразовываться в байты, эта задача возлагается на самого клиента. Клиент для преобразования строк использует кодировочную таблицу. Например: 65001 (UTF-8), 1251 (кодировка Windows для кириллицы), 866 (кодировка DOS для кириллицы), 20866 (KOI8-R), 21866 (KOI8-U).
@@ -47,6 +71,33 @@ Dim CodePage As Integer
 Библиотека использует кодировку UTF-8 по умолчанию (65001).
 
 Нельзя использовать кодировки, в символах которых присутствуют нули. Например: UTF-16 (1200), UTF-16 BE (1201). Нули в данном случае будут интерпретироваться как символ с кодом 0, что в большинстве случаев означает конец последовательности символов. IRC‐протокол накладывает ограничение на использование нулевого символа.
+
+### IrcClientSetCodePage
+
+Устанавливает номер кодировочной таблицы, используемой для преобразования байт в строку.
+
+```FreeBASIC
+Declare Function IrcClientSetCodePage( _
+	ByVal pIrcClient As IrcClient Ptr, _
+	ByVal CodePage As Integer _
+)As HRESULT
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### ClientVersion

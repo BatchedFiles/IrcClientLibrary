@@ -6,43 +6,45 @@
 
 Функции библиотеки работают со структурой `IrcClient`.
 
-
 ## Компиляция
 
 ```Batch
-make.cmd
+fbc -x simplebot.exe -i src test\simplebot.bas src\IrcClient.bas
 ```
-
 
 ## Быстрый старт
 
-Этот пример консольного приложения показывает как создать соединение с сервером IRC, зайти на канал и отправить сообщение в приват.
+Этот пример консольного приложения показывает как создать соединение с сервером IRC, зайти на канал и отправить личное сообщение пользователю.
 
 ```FreeBASIC
-#include "IrcClient.bi"
-
-Dim Shared Client As IrcClient
+#include once "IrcClient.bi"
 
 Sub OnIrcPrivateMessage( _
-		ByVal ClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As LPIRCPREFIX, _
+		ByVal pClientData As LPCLIENTDATA, _
+		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	IrcClientSendPrivateMessage(@Client, pIrcPrefix->Nick, SysAllocString("Да, я тоже."))
+	Dim pClient As IrcClient Ptr = pClientData
+	Dim Message As BSTR = SysAllocString(WStr("Yes, me too"))
+	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
+	SysFreeString(Message)
 End Sub
 
-Client.Events.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
+Dim Ev As IrcEvents
+Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 
-IrcClientOpenConnectionSimple1(@Client, SysAllocString("chat.freenode.net"), SysAllocString("LeoFitz"))
-IrcClientJoinChannel(@Client, SysAllocString("#freebasic-ru"))
+Dim pClient As IrcClient Ptr = CreateIrcClient()
+IrcClientSetCallback(pClient, @Ev, pClient)
 
-IrcClientStartReceiveDataLoop(@Client)
+IrcClientOpenConnectionSimple1( _
+	pClient, _
+	SysAllocString("irc.pouque.net"), _
+	SysAllocString("LeoFitz") _
+)
+IrcClientJoinChannel(pClient, SysAllocString("#chlor"))
 
-IrcClientCloseConnection(@Client)
+IrcClientMainLoop(pClient)
+
+IrcClientCloseConnection(pClient)
 ```
-
-Функция `IrcClientStartReceiveDataLoop` используется для остановки текущего потока и вызова асинхронных операций чтения‐записи.
-
-В оконных приложениях вместо функции `IrcClientStartReceiveDataLoop` необходимо использовать `IrcClientMsgStartReceiveDataLoop`.
-
 
