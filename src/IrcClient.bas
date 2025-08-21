@@ -2529,41 +2529,49 @@ End Function
 Public Function CreateIrcClient() As IrcClient Ptr
 
 	Dim pIrcClient As IrcClient Ptr = Allocate(SizeOf(IrcClient))
-	If pIrcClient = 0 Then
-		Return 0
+
+	If pIrcClient Then
+		Dim hEvent As HANDLE = CreateEventW(NULL, True, False, NULL)
+
+		If hEvent Then
+
+			pIrcClient->hEvent = hEvent
+			pIrcClient->ClientSocket = INVALID_SOCKET
+
+			ZeroMemory(@pIrcClient->ZeroEvents, SizeOf(IrcEvents))
+			pIrcClient->pEvents = @pIrcClient->ZeroEvents
+			pIrcClient->lpParameter = 0
+
+			Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
+
+			If pRecvContext Then
+				pIrcClient->pRecvContext = pRecvContext
+				pIrcClient->pRecvContext->pIrcClient = pIrcClient
+				pIrcClient->pRecvContext->cbLength = 0
+
+				pIrcClient->CodePage = CP_UTF8
+				pIrcClient->ClientNick = Type<ValueBSTR>()
+				pIrcClient->ClientVersion = Type<ValueBSTR>()
+				pIrcClient->ClientUserInfo = Type<ValueBSTR>()
+				pIrcClient->ErrorCode = S_OK
+				pIrcClient->IsInitialized = False
+
+				Dim hr As HRESULT = IrcClientStartup(pIrcClient)
+
+				If SUCCEEDED(hr) Then
+					Return pIrcClient
+				End If
+
+				DeAllocate(pRecvContext)
+			End If
+
+			CloseHandle(hEvent)
+		End If
+
+		DeAllocate(pIrcClient)
 	End If
 
-	pIrcClient->hEvent = CreateEventW(NULL, True, False, NULL)
-	If pIrcClient->hEvent = NULL Then
-		Return 0
-	End If
-
-	pIrcClient->ClientSocket = INVALID_SOCKET
-
-	ZeroMemory(@pIrcClient->ZeroEvents, SizeOf(IrcEvents))
-	pIrcClient->pEvents = @pIrcClient->ZeroEvents
-	pIrcClient->lpParameter = 0
-
-	pIrcClient->pRecvContext = Allocate(SizeOf(RecvClientContext))
-	If pIrcClient->pRecvContext = 0 Then
-		Return 0
-	End If
-	pIrcClient->pRecvContext->pIrcClient = pIrcClient
-	pIrcClient->pRecvContext->cbLength = 0
-
-	pIrcClient->CodePage = CP_UTF8
-	pIrcClient->ClientNick = Type<ValueBSTR>()
-	pIrcClient->ClientVersion = Type<ValueBSTR>()
-	pIrcClient->ClientUserInfo = Type<ValueBSTR>()
-	pIrcClient->ErrorCode = S_OK
-	pIrcClient->IsInitialized = False
-
-	Dim hr As HRESULT = IrcClientStartup(pIrcClient)
-	If FAILED(hr) Then
-		Return 0
-	End If
-
-	Return pIrcClient
+	Return 0
 
 End Function
 
