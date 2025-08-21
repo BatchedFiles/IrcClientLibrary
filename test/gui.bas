@@ -24,7 +24,64 @@ Type WindowContext
 	Ev As IrcEvents
 End Type
 
+Type TextBuffer
+	Chars(0 To (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 1) + 1) As TCHAR
+End Type
+
+Type TextBufferA
+	Chars(0 To (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 1) + 1) As CHAR
+End Type
+
+Type TextBufferW
+	Chars(0 To (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 1) + 1) As WCHAR
+End Type
+
+Private Function GetDlgItemBstr( _
+		ByVal hwndControl As HWND _
+	)As BSTR
+
+	Dim buf As TextBuffer = Any
+	Dim res As Long = GetWindowText( _
+		hwndControl, _
+		@buf.Chars(0), _
+		UBound(buf.Chars) - 1 _
+	)
+
+	#ifdef UNICODE
+		Dim bstrMessage As BSTR = SysAllocString(@buf.Chars(0))
+	#else
+		Dim UnicodeBuf As TextBufferW = Any
+		Dim lpBuffer As LPWSTR = @UnicodeBuf.Chars(0)
+		Dim Length As Long = MultiByteToWideChar( _
+			CP_ACP, _
+			0, _
+			@buf.Chars(0), _
+			res, _
+			lpBuffer, _
+			UBound(UnicodeBuf.Chars) - 1 _
+		)
+		UnicodeBuf.Chars(Length) = 0
+		Dim bstrMessage As BSTR = SysAllocString(@UnicodeBuf.Chars(0))
+	#endif
+
+	Return bstrMessage
+
+End Function
+
 Private Sub AppendLengthText( _
+		ByVal hwndControl As HWND, _
+		ByVal lptszText As LPTSTR _
+	)
+
+	Dim OldTextLength As Long = GetWindowTextLength(hwndControl)
+
+	Edit_SetSel(hwndControl, OldTextLength, OldTextLength)
+	Edit_ReplaceSel(hwndControl, lptszText)
+	Edit_ScrollCaret(hwndControl)
+
+End Sub
+
+Private Sub AppendTextBstr( _
 		ByVal hwndControl As HWND, _
 		ByVal lptszText As LPTSTR _
 	)
@@ -234,8 +291,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
 		pContext->Ev.lpfnSendedRawMessageEvent = @OnRawMessage
 
-		pContext->pClient = CreateIrcClient()
-		IrcClientSetCallback(pContext->pClient, @pContext->Ev, pContext)
+		pContext->pClient = CreateIrcClient(@pContext->Ev, pContext)
 
 		Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
 		IrcClientSetClientVersion(pContext->pClient, ClientVersion)
@@ -286,28 +342,19 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 							DisableWindow(hWin, pContext->hwndStop)
 
 						Case IDC_SEND
-							Dim buf(IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM) As TCHAR = Any
-							Dim res As Long = GetWindowText( _
-								pContext->hwndMessage, _
-								@buf(0), _
-								IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - 1 _
-							)
+							Dim bstrMessage As BSTR = GetDlgItemBstr(pContext->hwndMessage)
 
-							If res Then
-								Dim bstrMessage As BSTR = SysAllocString(@buf(0))
-
-								If bstrMessage Then
-									IrcClientSendPrivateMessage( _
-										pContext->pClient, _
-										pContext->Channel, _
-										bstrMessage _
-									)
-									SysFreeString(bstrMessage)
-									Edit_SetText( _
-										pContext->hwndMessage, _
-										NULL _
-									)
-								End If
+							If bstrMessage Then
+								IrcClientSendPrivateMessage( _
+									pContext->pClient, _
+									pContext->Channel, _
+									bstrMessage _
+								)
+								SysFreeString(bstrMessage)
+								Edit_SetText( _
+									pContext->hwndMessage, _
+									NULL _
+								)
 							End If
 					End Select
 

@@ -239,7 +239,6 @@ Type _IrcClient
 	ClientNick As ValueBSTR
 	ClientVersion As ValueBSTR
 	ClientUserInfo As ValueBSTR
-	ZeroEvents As IrcEvents
 	ErrorCode As HRESULT
 	IsInitialized As Boolean
 End Type
@@ -1459,7 +1458,6 @@ Private Function ParseData( _
 End Function
 
 Private Function IrcClientStartup( _
-		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 
 	Scope
@@ -1511,7 +1509,6 @@ Private Function IrcClientStartup( _
 End Function
 
 Private Function IrcClientCleanup( _
-		ByVal pIIrcClient As IrcClient Ptr _
 	)As HRESULT
 
 	Dim dwError As Long = WSACleanup()
@@ -2571,7 +2568,10 @@ Public Function IrcClientSendRawMessage( _
 
 End Function
 
-Public Function CreateIrcClient() As IrcClient Ptr
+Public Function CreateIrcClient( _
+		ByVal pEvents As IrcEvents Ptr, _
+		ByVal lpParameter As LPCLIENTDATA _
+	) As IrcClient Ptr
 
 	Dim pIrcClient As IrcClient Ptr = Allocate(SizeOf(IrcClient))
 
@@ -2579,31 +2579,27 @@ Public Function CreateIrcClient() As IrcClient Ptr
 		Dim hEvent As HANDLE = CreateEventW(NULL, True, False, NULL)
 
 		If hEvent Then
-
-			pIrcClient->hEvent = hEvent
-			pIrcClient->ClientSocket = INVALID_SOCKET
-
-			ZeroMemory(@pIrcClient->ZeroEvents, SizeOf(IrcEvents))
-			pIrcClient->pEvents = @pIrcClient->ZeroEvents
-			pIrcClient->lpParameter = 0
-
 			Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
 
 			If pRecvContext Then
-				pIrcClient->pRecvContext = pRecvContext
-				pIrcClient->pRecvContext->pIrcClient = pIrcClient
-				pIrcClient->pRecvContext->cbLength = 0
-
-				pIrcClient->CodePage = CP_UTF8
-				pIrcClient->ClientNick = Type<ValueBSTR>()
-				pIrcClient->ClientVersion = Type<ValueBSTR>()
-				pIrcClient->ClientUserInfo = Type<ValueBSTR>()
-				pIrcClient->ErrorCode = S_OK
-				pIrcClient->IsInitialized = False
-
-				Dim hr As HRESULT = IrcClientStartup(pIrcClient)
+				Dim hr As HRESULT = IrcClientStartup()
 
 				If SUCCEEDED(hr) Then
+					pIrcClient->pRecvContext = pRecvContext
+					pIrcClient->pRecvContext->pIrcClient = pIrcClient
+					pIrcClient->pRecvContext->cbLength = 0
+
+					pIrcClient->CodePage = CP_UTF8
+					pIrcClient->ClientNick = Type<ValueBSTR>()
+					pIrcClient->ClientVersion = Type<ValueBSTR>()
+					pIrcClient->ClientUserInfo = Type<ValueBSTR>()
+					pIrcClient->ErrorCode = S_OK
+					pIrcClient->IsInitialized = False
+
+					pIrcClient->hEvent = hEvent
+					pIrcClient->pEvents = pEvents
+					pIrcClient->lpParameter = lpParameter
+
 					Return pIrcClient
 				End If
 
@@ -2628,25 +2624,12 @@ Public Sub DestroyIrcClient( _
 		closesocket(pIrcClient->ClientSocket)
 	End If
 
-	IrcClientCleanup(pIrcClient)
+	IrcClientCleanup()
 	Deallocate(pIrcClient->pRecvContext)
 	CloseHandle(pIrcClient->hEvent)
 	Deallocate(pIrcClient)
 
 End Sub
-
-Public Function IrcClientSetCallback( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByVal pEvents As IrcEvents Ptr, _
-		ByVal lpParameter As LPCLIENTDATA _
-	)As HRESULT
-
-	pIrcClient->pEvents = pEvents
-	pIrcClient->lpParameter = lpParameter
-
-	Return S_OK
-
-End Function
 
 Public Function IrcClientGetCodePage( _
 		ByVal pIrcClient As IrcClient Ptr, _

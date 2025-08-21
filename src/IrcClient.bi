@@ -100,19 +100,14 @@ Type IrcClient As _IrcClient
 
 ' Create / destroy
 
-Declare Function CreateIrcClient() As IrcClient Ptr
+Declare Function CreateIrcClient( _
+	ByVal pEvents As IrcEvents Ptr, _
+	ByVal lpParameter As LPCLIENTDATA _
+) As IrcClient Ptr
 
 Declare Sub DestroyIrcClient( _
 	ByVal pIrcClient As IrcClient Ptr _
 )
-
-' Callbacks
-
-Declare Function IrcClientSetCallback( _
-	ByVal pIrcClient As IrcClient Ptr, _
-	ByVal pEvents As IrcEvents Ptr, _
-	ByVal lpParameter As LPCLIENTDATA _
-)As HRESULT
 
 ' Properties
 

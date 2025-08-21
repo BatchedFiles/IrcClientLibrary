@@ -1,11 +1,12 @@
 #include once "IrcClient.bi"
 
+Dim Shared pClient As IrcClient Ptr
+
 Sub OnIrcPrivateMessage( _
 		ByVal pClientData As LPCLIENTDATA, _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
 		ByVal MessageText As BSTR _
 	)
-	Dim pClient As IrcClient Ptr = pClientData
 	IrcClientSendPrivateMessage( _
 		pClient, _
 		pIrcPrefix->Nick, _
@@ -16,8 +17,7 @@ End Sub
 Dim Ev As IrcEvents
 Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
 
-Dim pClient As IrcClient Ptr = CreateIrcClient()
-IrcClientSetCallback(pClient, @Ev, pClient)
+pClient = CreateIrcClient(@Ev, 0)
 
 IrcClientOpenConnectionSimple1( _
 	pClient, _
