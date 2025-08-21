@@ -58,8 +58,6 @@ Const NewLineString = !"\r\n"
 
 Const SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(NewLineString)
 
-Const SendBuffersCount = 2
-
 Enum IrcCommands
 	Ping
 	PrivateMessage
@@ -175,16 +173,6 @@ Type RecvClientContext
 	pIrcClient As IrcClient Ptr
 	cbLength As Integer
 	Buffer As ZString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1)
-End Type
-
-Type CrLfA
-	Cr As Byte
-	Lf As Byte
-End Type
-
-Type SendBuffers
-	Bytes As WSABUF
-	CrLf As WSABUF
 End Type
 
 Type SocketNode
@@ -1945,22 +1933,18 @@ Private Function StartSendOverlapped( _
 
 	pContext->pIrcClient = pIrcClient
 
-	Dim CrLf As CrLfA = Any
-	CrLf.Cr = Characters.CarriageReturn
-	CrLf.Lf = Characters.LineFeed
+	pContext->Buffer[pContext->cbLength] = Characters.CarriageReturn
+	pContext->Buffer[pContext->cbLength + 1] = Characters.LineFeed
 
-	Dim SendBuf As SendBuffers = Any
-	SendBuf.Bytes.len = Cast(ULONG, min(pContext->cbLength, SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
-	SendBuf.Bytes.buf = @pContext->Buffer
-
-	SendBuf.CrLf.len = Len(NewLineString)
-	SendBuf.CrLf.buf = Cast(CHAR Ptr, @CrLf)
+	Dim SendBuf As WSABUF = Any
+	SendBuf.len = Cast(ULONG, min(pContext->cbLength + Len(NewLineString), SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
+	SendBuf.buf = @pContext->Buffer
 
 	Const dwSendFlags As DWORD = 0
 	Dim res As Long = WSASend( _
 		pIrcClient->ClientSocket, _
-		CPtr(WSABUF Ptr, @SendBuf), _
-		SendBuffersCount, _
+		@SendBuf, _
+		1, _
 		NULL, _
 		dwSendFlags, _
 		@pContext->Overlap, _
@@ -2714,8 +2698,6 @@ Public Function IrcClientOpenConnection( _
 	)As HRESULT
 
 	ResetEvent(pIrcClient->hEvent)
-
-	pIrcClient->ErrorCode = S_OK
 
 	pIrcClient->pRecvContext->cbLength = 0
 	pIrcClient->ClientNick = Nick
