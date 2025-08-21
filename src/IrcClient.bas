@@ -232,7 +232,7 @@ End Type
 Type _IrcClient
 	hEvent As HANDLE
 	ClientSocket As SOCKET
-	pEvents As IrcEvents Ptr
+	pEvents As IrcEvents
 	lpParameter As LPCLIENTDATA
 	pRecvContext As RecvClientContext Ptr
 	CodePage As Integer
@@ -774,8 +774,8 @@ Private Function ProcessPingCommand( _
 		Dim pServerName As ValueBSTR Ptr = WStringPtrToValueBstrPtr(ServerName)
 		pServerName->Length = bstrIrcMessage.GetTrailingNullChar() - ServerName
 
-		If CUInt(pIrcClient->pEvents->lpfnPingEvent) Then
-			pIrcClient->pEvents->lpfnPingEvent(pIrcClient->lpParameter, pPrefix, *pServerName)
+		If CUInt(pIrcClient->pEvents.lpfnPingEvent) Then
+			pIrcClient->pEvents.lpfnPingEvent(pIrcClient->lpParameter, pPrefix, *pServerName)
 		Else
 			Return IrcClientSendPong(pIrcClient, *pServerName)
 		End If
@@ -823,38 +823,38 @@ Private Function ProcessPrivateMessageCommand( _
 						Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
 						pCtcpParam->Length = MessageTextLength - Len(PingStringWithSpace)
 
-						If CUInt(pIrcClient->pEvents->lpfnCtcpPingRequestEvent) = 0 Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpPingRequestEvent) = 0 Then
 							IrcClientSendCtcpPingResponse(pIrcClient, pPrefix->Nick, *pCtcpParam)
 						Else
-							pIrcClient->pEvents->lpfnCtcpPingRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpPingRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 					End If
 
 				Case CtcpCommands.Action
 					':Angel!wings@irc.org PRIVMSG Qubick :\001ACTION Any Text\001
 					If pwszStartCtcpParam <> NULL Then
-						If CUInt(pIrcClient->pEvents->lpfnCtcpActionEvent) Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpActionEvent) Then
 
 							Dim pCtcpParam As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartCtcpParam)
 							pCtcpParam->Length = MessageTextLength - Len(ActionStringWithSpace)
 
-							pIrcClient->pEvents->lpfnCtcpActionEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpActionEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 					End If
 
 				Case CtcpCommands.UserInfo
 					':Angel!wings@irc.org PRIVMSG Qubick :\001USERINFO\001
-					If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents.lpfnCtcpUserInfoRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientUserInfo) <> 0 Then
 							IrcClientSendCtcpUserInfoResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientUserInfo)
 						End If
 					Else
-						pIrcClient->pEvents->lpfnCtcpUserInfoRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents.lpfnCtcpUserInfoRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 
 				Case CtcpCommands.Time
 					':Angel!wings@irc.org PRIVMSG Qubick :\001TIME\001
-					If CUInt(pIrcClient->pEvents->lpfnCtcpTimeRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents.lpfnCtcpTimeRequestEvent) = 0 Then
 						' Tue, 15 Nov 1994 12:45:26 GMT
 						Const DateFormatString = "ddd, dd MMM yyyy "
 						Const TimeFormatString = "HH:mm:ss GMT"
@@ -887,17 +887,17 @@ Private Function ProcessPrivateMessageCommand( _
 						SysFreeString(bstrTimeValue)
 						Return hrSendCtcpTime
 					Else
-						pIrcClient->pEvents->lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents.lpfnCtcpTimeRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 
 				Case CtcpCommands.Version
 					':Angel!wings@irc.org PRIVMSG Qubick :\001VERSION\001
-					If CUInt(pIrcClient->pEvents->lpfnCtcpVersionRequestEvent) = 0 Then
+					If CUInt(pIrcClient->pEvents.lpfnCtcpVersionRequestEvent) = 0 Then
 						If Len(pIrcClient->ClientVersion) <> 0 Then
 							Return IrcClientSendCtcpVersionResponse(pIrcClient, pPrefix->Nick, pIrcClient->ClientVersion)
 						End If
 					Else
-						pIrcClient->pEvents->lpfnCtcpVersionRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
+						pIrcClient->pEvents.lpfnCtcpVersionRequestEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget)
 					End If
 
 			End Select
@@ -906,12 +906,12 @@ Private Function ProcessPrivateMessageCommand( _
 			pMessageText->Length = MessageTextLength
 
 			If lstrcmpW(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
-				If CUInt(pIrcClient->pEvents->lpfnPrivateMessageEvent) Then
-					pIrcClient->pEvents->lpfnPrivateMessageEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+				If CUInt(pIrcClient->pEvents.lpfnPrivateMessageEvent) Then
+					pIrcClient->pEvents.lpfnPrivateMessageEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 				End If
 			Else
-				If CUInt(pIrcClient->pEvents->lpfnChannelMessageEvent) Then
-					pIrcClient->pEvents->lpfnChannelMessageEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pMessageText)
+				If CUInt(pIrcClient->pEvents.lpfnChannelMessageEvent) Then
+					pIrcClient->pEvents.lpfnChannelMessageEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pMessageText)
 				End If
 			End If
 		End If
@@ -960,27 +960,27 @@ Private Function ProcessNoticeCommand( _
 				Select Case GetCtcpCommand(pwszNoticeText)
 
 					Case CtcpCommands.Ping
-						If CUInt(pIrcClient->pEvents->lpfnCtcpPingResponseEvent) Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpPingResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(PingStringWithSpace)
-							pIrcClient->pEvents->lpfnCtcpPingResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpPingResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
 					Case CtcpCommands.UserInfo
-						If CUInt(pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent) Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpUserInfoResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(UserInfoStringWithSpace)
-							pIrcClient->pEvents->lpfnCtcpUserInfoResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpUserInfoResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
 					Case CtcpCommands.Time
-						If CUInt(pIrcClient->pEvents->lpfnCtcpTimeResponseEvent) Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpTimeResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(TimeStringWithSpace)
-							pIrcClient->pEvents->lpfnCtcpTimeResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpTimeResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
 					Case CtcpCommands.Version
-						If CUInt(pIrcClient->pEvents->lpfnCtcpVersionResponseEvent) Then
+						If CUInt(pIrcClient->pEvents.lpfnCtcpVersionResponseEvent) Then
 							pCtcpParam->Length = NoticeTextLength - Len(VersionStringWithSpace)
-							pIrcClient->pEvents->lpfnCtcpVersionResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
+							pIrcClient->pEvents.lpfnCtcpVersionResponseEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pCtcpParam)
 						End If
 
 				End Select
@@ -991,12 +991,12 @@ Private Function ProcessNoticeCommand( _
 			pNoticeText->Length = NoticeTextLength
 
 			If lstrcmpW(bstrMsgTarget, pIrcClient->ClientNick) = 0 Then
-				If CUInt(pIrcClient->pEvents->lpfnNoticeEvent) Then
-					pIrcClient->pEvents->lpfnNoticeEvent(pIrcClient->lpParameter, pPrefix, *pNoticeText)
+				If CUInt(pIrcClient->pEvents.lpfnNoticeEvent) Then
+					pIrcClient->pEvents.lpfnNoticeEvent(pIrcClient->lpParameter, pPrefix, *pNoticeText)
 				End If
 			Else
-				If CUInt(pIrcClient->pEvents->lpfnChannelNoticeEvent) Then
-					pIrcClient->pEvents->lpfnChannelNoticeEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pNoticeText)
+				If CUInt(pIrcClient->pEvents.lpfnChannelNoticeEvent) Then
+					pIrcClient->pEvents.lpfnChannelNoticeEvent(pIrcClient->lpParameter, pPrefix, bstrMsgTarget, *pNoticeText)
 				End If
 			End If
 		End If
@@ -1016,11 +1016,11 @@ Private Function ProcessJoinCommand( _
 	)As HRESULT
 
 	':Qubick!~Qubick@irc.org JOIN ##freebasic
-	If CUInt(pIrcClient->pEvents->lpfnUserJoinedEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnUserJoinedEvent) Then
 		Dim pChannel As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pChannel->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 
-		pIrcClient->pEvents->lpfnUserJoinedEvent(pIrcClient->lpParameter, pPrefix, *pChannel)
+		pIrcClient->pEvents.lpfnUserJoinedEvent(pIrcClient->lpParameter, pPrefix, *pChannel)
 	End If
 
 	Return S_OK
@@ -1035,18 +1035,18 @@ Private Function ProcessQuitCommand( _
 	)As HRESULT
 
 	' :syrk!kalt@millennium.stealth.net QUIT :Gone to have lunch
-	If CUInt(pIrcClient->pEvents->lpfnQuitEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnQuitEvent) Then
 		Dim QuitText As WString Ptr = GetIrcMessageText(pwszIrcParam1)
 
 		If QuitText = 0 Then
 			Dim MessageText As BSTR = SysAllocString(EmptyString)
-			pIrcClient->pEvents->lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, MessageText)
+			pIrcClient->pEvents.lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, MessageText)
 			SysFreeString(MessageText)
 		Else
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(QuitText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - QuitText
 
-			pIrcClient->pEvents->lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents.lpfnQuitEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 
@@ -1062,7 +1062,7 @@ Private Function ProcessPartCommand( _
 	)As HRESULT
 
 	':WiZ!jto@tolsun.oulu.fi PART #playzone :I lost
-	If CUInt(pIrcClient->pEvents->lpfnUserLeavedEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnUserLeavedEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 
 		Dim PartText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
@@ -1071,7 +1071,7 @@ Private Function ProcessPartCommand( _
 			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
 			Dim bstrPartText As BSTR = SysAllocString(EmptyString)
 
-			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrPartText)
+			pIrcClient->pEvents.lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrPartText)
 
 			SysFreeString(bstrPartText)
 			SysFreeString(bstrChannel)
@@ -1081,7 +1081,7 @@ Private Function ProcessPartCommand( _
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(PartText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - PartText
 
-			pIrcClient->pEvents->lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			pIrcClient->pEvents.lpfnUserLeavedEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
 
 			SysFreeString(bstrChannel)
 		End If
@@ -1103,13 +1103,13 @@ Private Function ProcessErrorCommand( _
 	Dim pwszMessageText As WString Ptr = GetIrcMessageText(pwszIrcParam1)
 
 	If pwszMessageText <> 0 Then
-		If CUInt(pIrcClient->pEvents->lpfnServerErrorEvent) Then
+		If CUInt(pIrcClient->pEvents.lpfnServerErrorEvent) Then
 			Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszMessageText
 
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszMessageText)
 			pMessageText->Length = MessageTextLength
 
-			pIrcClient->pEvents->lpfnServerErrorEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents.lpfnServerErrorEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 
@@ -1125,13 +1125,13 @@ Private Function ProcessNickCommand( _
 	)As HRESULT
 
 	':WiZ!jto@tolsun.oulu.fi NICK Kilroy
-	If CUInt(pIrcClient->pEvents->lpfnNickChangedEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnNickChangedEvent) Then
 		Dim MessageTextLength As Integer = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = MessageTextLength
 
-		pIrcClient->pEvents->lpfnNickChangedEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+		pIrcClient->pEvents.lpfnNickChangedEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 	End If
 
 	Return S_OK
@@ -1146,7 +1146,7 @@ Private Function ProcessKickCommand( _
 	)As HRESULT
 
 	':WiZ!jto@tolsun.oulu.fi KICK #Finnish John
-	If CUInt(pIrcClient->pEvents->lpfnKickEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnKickEvent) Then
 		Dim pwszIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 
 		If pwszIrcParam2 <> NULL Then
@@ -1156,7 +1156,7 @@ Private Function ProcessKickCommand( _
 			Dim pKickedNick As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 			pKickedNick->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam2
 
-			pIrcClient->pEvents->lpfnKickEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pKickedNick)
+			pIrcClient->pEvents.lpfnKickEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pKickedNick)
 
 			SysFreeString(bstrChannel)
 		End If
@@ -1175,7 +1175,7 @@ Private Function ProcessModeCommand( _
 
 	':ChanServ!ChanServ@services. MODE #freebasic +v ssteiner
 	':FreeBasicCompile MODE FreeBasicCompile :+i
-	If CUInt(pIrcClient->pEvents->lpfnModeEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnModeEvent) Then
 		' Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		' Dim wStartIrcParam3 As WString Ptr = SeparateWordBySpace(pwszStartIrcParam2)
 		' pIrcClient->Events.lpfnModeEvent(pIrcClient->lpParameter, pPrefix, pwszIrcParam1, pwszStartIrcParam2, wStartIrcParam3)
@@ -1193,7 +1193,7 @@ Private Function ProcessTopicCommand( _
 	)As HRESULT
 
 	':WiZ!jto@tolsun.oulu.fi TOPIC #test :New topic
-	If CUInt(pIrcClient->pEvents->lpfnTopicEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnTopicEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 		Dim TopicText As WString Ptr = GetIrcMessageText(pwszStartIrcParam2)
 
@@ -1201,7 +1201,7 @@ Private Function ProcessTopicCommand( _
 			Dim bstrChannel As BSTR = SysAllocStringLen(pwszIrcParam1, bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1)
 			Dim bstrTopicText As BSTR = SysAllocString(EmptyString)
 
-			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrTopicText)
+			pIrcClient->pEvents.lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, bstrTopicText)
 
 			SysFreeString(bstrTopicText)
 			SysFreeString(bstrChannel)
@@ -1211,7 +1211,7 @@ Private Function ProcessTopicCommand( _
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(TopicText)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - TopicText
 
-			pIrcClient->pEvents->lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
+			pIrcClient->pEvents.lpfnTopicEvent(pIrcClient->lpParameter, pPrefix, bstrChannel, *pMessageText)
 
 			SysFreeString(bstrChannel)
 		End If
@@ -1229,7 +1229,7 @@ Private Function ProcessInviteCommand( _
 	)As HRESULT
 
 	':Angel!wings@irc.org INVITE Wiz #Dust
-	If CUInt(pIrcClient->pEvents->lpfnInviteEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnInviteEvent) Then
 		Dim pwszStartIrcParam2 As WString Ptr = SeparateWordBySpace(pwszIrcParam1)
 
 		If pwszStartIrcParam2 <> NULL Then
@@ -1238,7 +1238,7 @@ Private Function ProcessInviteCommand( _
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszStartIrcParam2)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszStartIrcParam2
 
-			pIrcClient->pEvents->lpfnInviteEvent(pIrcClient->lpParameter, pPrefix, Target, *pMessageText)
+			pIrcClient->pEvents.lpfnInviteEvent(pIrcClient->lpParameter, pPrefix, Target, *pMessageText)
 
 			SysFreeString(Target)
 		End If
@@ -1258,11 +1258,11 @@ Private Function ProcessPongCommand( _
 	'PONG :barjavel.freenode.net
 	Dim ServerName As WString Ptr = GetIrcServerName(pwszIrcParam1)
 	If ServerName <> 0 Then
-		If CUInt(pIrcClient->pEvents->lpfnPongEvent) Then
+		If CUInt(pIrcClient->pEvents.lpfnPongEvent) Then
 			Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(ServerName)
 			pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - ServerName
 
-			pIrcClient->pEvents->lpfnPongEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
+			pIrcClient->pEvents.lpfnPongEvent(pIrcClient->lpParameter, pPrefix, *pMessageText)
 		End If
 	End If
 
@@ -1279,11 +1279,11 @@ Private Function ProcessNumericCommand( _
 	)As HRESULT
 
 	':orwell.freenode.net 376 FreeBasicCompile :End of /MOTD command.
-	If CUInt(pIrcClient->pEvents->lpfnNumericMessageEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnNumericMessageEvent) Then
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 
-		pIrcClient->pEvents->lpfnNumericMessageEvent(pIrcClient->lpParameter, pPrefix, IrcNumericCommand, *pMessageText)
+		pIrcClient->pEvents.lpfnNumericMessageEvent(pIrcClient->lpParameter, pPrefix, IrcNumericCommand, *pMessageText)
 	End If
 
 	Return S_OK
@@ -1299,13 +1299,13 @@ Private Function ProcessServerCommand( _
 	)As HRESULT
 
 	':orwell.freenode.net 376 FreeBasicCompile :End of /MOTD command.
-	If CUInt(pIrcClient->pEvents->lpfnServerMessageEvent) Then
+	If CUInt(pIrcClient->pEvents.lpfnServerMessageEvent) Then
 		Dim bstrIrcCommand As BSTR = SysAllocString(pwszIrcCommand)
 
 		Dim pMessageText As ValueBSTR Ptr = WStringPtrToValueBstrPtr(pwszIrcParam1)
 		pMessageText->Length = bstrIrcMessage.GetTrailingNullChar() - pwszIrcParam1
 
-		pIrcClient->pEvents->lpfnServerMessageEvent(pIrcClient->lpParameter, pPrefix, bstrIrcCommand, *pMessageText)
+		pIrcClient->pEvents.lpfnServerMessageEvent(pIrcClient->lpParameter, pPrefix, bstrIrcCommand, *pMessageText)
 
 		SysFreeString(bstrIrcCommand)
 	End If
@@ -1824,9 +1824,9 @@ Private Sub ReceiveCompletionRoutine( _
 				bstrServerResponse.WChars(ServerResponseLength) = Characters.NullChar
 
 				Scope
-					If CUInt(pIrcClient->pEvents->lpfnReceivedRawMessageEvent) Then
+					If CUInt(pIrcClient->pEvents.lpfnReceivedRawMessageEvent) Then
 						pContext->Buffer[CrLfIndex + 1] = Characters.NullChar
-						pIrcClient->pEvents->lpfnReceivedRawMessageEvent( _
+						pIrcClient->pEvents.lpfnReceivedRawMessageEvent( _
 							pIrcClient->lpParameter, _
 							@pContext->Buffer, _
 							CrLfIndex + 1 _
@@ -1931,9 +1931,9 @@ Private Sub SendCompletionRoutine( _
 		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
 		SetEvent(pIrcClient->hEvent)
 	Else
-		If CUInt(pIrcClient->pEvents->lpfnSendedRawMessageEvent) Then
+		If CUInt(pIrcClient->pEvents.lpfnSendedRawMessageEvent) Then
 			pContext->Buffer[pContext->cbLength] = Characters.NullChar
-			pIrcClient->pEvents->lpfnSendedRawMessageEvent( _
+			pIrcClient->pEvents.lpfnSendedRawMessageEvent( _
 				pIrcClient->lpParameter, _
 				@pContext->Buffer, _
 				pContext->cbLength _
@@ -2597,8 +2597,12 @@ Public Function CreateIrcClient( _
 					pIrcClient->IsInitialized = False
 
 					pIrcClient->hEvent = hEvent
-					pIrcClient->pEvents = pEvents
 					pIrcClient->lpParameter = lpParameter
+					CopyMemory( _
+						@pIrcClient->pEvents, _
+						pEvents, _
+						SizeOf(IrcEvents) _
+					)
 
 					Return pIrcClient
 				End If
