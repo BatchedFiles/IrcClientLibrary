@@ -100,6 +100,17 @@ End Enum
 Const VALUEBSTR_BUFFER_CAPACITY As Integer = 510
 Const SocketListCapacity As Integer = 16
 
+Dim Shared lpfnConnectEx As LPFN_CONNECTEX
+
+#ifndef DEFINE_GUID
+#define DEFINE_GUID(n, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) Extern n Alias #n As GUID : _
+	Dim n As GUID = Type(l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8})
+#endif
+
+DEFINE_GUID(GUID_WSAID_CONNECTEX, _
+	&h25a207b9, &hddf3, &h4660, &h8e, &he9, &h76, &he5, &h8c, &h74, &h06, &h3e _
+)
+
 Type ValueBSTR
 
 	#ifdef __FB_64BIT__
@@ -1418,11 +1429,49 @@ Private Function IrcClientStartup( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 
-	Dim objWsaData As WSAData = Any
-	Dim dwError As Long = WSAStartup(MAKEWORD(2, 2), @objWsaData)
-	If dwError <> NO_ERROR Then
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
+	Scope
+		Dim objWsaData As WSAData = Any
+		Dim dwError As Long = WSAStartup(MAKEWORD(2, 2), @objWsaData)
+		If dwError <> NO_ERROR Then
+			Return HRESULT_FROM_WIN32(dwError)
+		End If
+	End Scope
+
+	Scope
+		Dim ListenSocket As SOCKET = WSASocketW( _
+			AF_INET, _
+			SOCK_STREAM, _
+			IPPROTO_TCP, _
+			NULL, _
+			0, _
+			WSA_FLAG_OVERLAPPED _
+		)
+		If ListenSocket = INVALID_SOCKET Then
+			Dim dwError As Long = WSAGetLastError()
+			Return HRESULT_FROM_WIN32(dwError)
+		End If
+
+		Dim dwBytes As DWORD = Any
+		Dim resLoadConnectEx As Long = WSAIoctl( _
+			ListenSocket, _
+			SIO_GET_EXTENSION_FUNCTION_POINTER, _
+			@GUID_WSAID_CONNECTEX, _
+			SizeOf(GUID), _
+			@lpfnConnectEx, _
+			SizeOf(lpfnConnectEx), _
+			@dwBytes, _
+			NULL, _
+			NULL _
+		)
+		If resLoadConnectEx = SOCKET_ERROR Then
+			Dim dwError As Long = WSAGetLastError()
+			closesocket(ListenSocket)
+			Return HRESULT_FROM_WIN32(dwError)
+		End If
+
+		closesocket(ListenSocket)
+
+	End Scope
 
 	Return S_OK
 
