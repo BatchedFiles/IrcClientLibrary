@@ -21,7 +21,6 @@ Type WindowContext
 	hWndStop As HWND
 	hWndMessage As HWND
 	hWndSend As HWND
-	Ev As IrcEvents
 End Type
 
 Type TextBuffer
@@ -106,20 +105,6 @@ Private Sub OnNumericMessage( _
 	If IrcNumericCommand = IRCPROTOCOL_RPL_WELCOME Then
 		IrcClientJoinChannel(pContext->pClient, pContext->Channel)
 	End If
-
-End Sub
-
-Private Sub OnIrcPrivateMessage( _
-		ByVal pClientData As LPCLIENTDATA, _
-		ByVal pIrcPrefix As IrcPrefix Ptr, _
-		ByVal MessageText As BSTR _
-	)
-
-	Dim pContext As WindowContext Ptr = pClientData
-
-	Dim Message As BSTR = SysAllocString(WStr("Yes, me too"))
-	IrcClientSendPrivateMessage(pContext->pClient, pIrcPrefix->Nick, Message)
-	SysFreeString(Message)
 
 End Sub
 
@@ -237,7 +222,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndStart = CreateWindowEx(0, _
 			WC_BUTTON, _
 			"Start", _
-			WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
 			10, 10, 120, 36, _
 			hWin, _
 			Cast(HMENU, IDC_START), _
@@ -247,7 +232,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndStop = CreateWindowEx(0, _
 			WC_BUTTON, _
 			"Stop", _
-			WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
 			10 + 120 + 10, 10, 120, 36, _
 			hWin, _
 			Cast(HMENU, IDC_STOP), _
@@ -257,7 +242,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndReceive = CreateWindowEx(0, _
 			WC_EDIT, _
 			NULL, _
-			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE Or ES_READONLY, _
+			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE Or ES_READONLY, _
 			10, 56, 640, 480, _
 			hWin, _
 			Cast(HMENU, IDC_RECEIVE), _
@@ -267,7 +252,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndMessage = CreateWindowEx(0, _
 			WC_EDIT, _
 			NULL, _
-			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
+			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_TABSTOP Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
 			10, 56 + 480 + 10, 640 - 120 - 10, 120, _
 			hWin, _
 			Cast(HMENU, IDC_MESSAGE), _
@@ -277,7 +262,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		pContext->hWndSend = CreateWindowEx(0, _
 			WC_BUTTON, _
 			"Send", _
-			WS_CHILD Or WS_VISIBLE Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
 			10 + 640 - 120 - 10 + 10, 56 + 480 + 10 + 10, 120, 36, _
 			hWin, _
 			Cast(HMENU, IDC_SEND), _
@@ -285,13 +270,13 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 			NULL _
 		)
 
-		ZeroMemory(@pContext->Ev, SizeOf(IrcEvents))
-		pContext->Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage
-		pContext->Ev.lpfnNumericMessageEvent = @OnNumericMessage
-		pContext->Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
-		pContext->Ev.lpfnSendedRawMessageEvent = @OnRawMessage
+		Dim Ev As IrcEvents = Any
+		ZeroMemory(@Ev, SizeOf(IrcEvents))
+		Ev.lpfnNumericMessageEvent = @OnNumericMessage
+		Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
+		Ev.lpfnSendedRawMessageEvent = @OnRawMessage
 
-		pContext->pClient = CreateIrcClient(@pContext->Ev, pContext)
+		pContext->pClient = CreateIrcClient(@Ev, pContext)
 
 		Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
 		IrcClientSetClientVersion(pContext->pClient, ClientVersion)
