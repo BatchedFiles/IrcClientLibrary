@@ -25,34 +25,162 @@ End Type
 
 Type LPCLIENTDATA As Any Ptr
 
-Type OnSendedRawMessageEvent As Sub    (ByVal lpParameter As LPCLIENTDATA, ByVal pBytes As Const UByte Ptr, ByVal Count As Integer)
-Type OnReceivedRawMessageEvent As Sub  (ByVal lpParameter As LPCLIENTDATA, ByVal pBytes As Const UByte Ptr, ByVal Count As Integer)
-Type OnServerErrorEvent As Sub         (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal IrcMessage As BSTR)
-Type OnNumericMessageEvent As Sub      (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal IrcNumericCommand As Integer, ByVal MessageText As BSTR)
-Type OnServerMessageEvent As Sub       (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal IrcCommand As BSTR, ByVal MessageText As BSTR)
-Type OnNoticeEvent As Sub              (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal NoticeText As BSTR)
-Type OnChannelNoticeEvent As Sub       (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal NoticeText As BSTR)
-Type OnChannelMessageEvent As Sub      (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal MessageText As BSTR)
-Type OnPrivateMessageEvent As Sub      (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal MessageText As BSTR)
-Type OnUserJoinedEvent As Sub          (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR)
-Type OnUserLeavedEvent As Sub          (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal MessageText As BSTR)
-Type OnNickChangedEvent As Sub         (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal NewNick As BSTR)
-Type OnTopicEvent As Sub               (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal TopicText As BSTR)
-Type OnQuitEvent As Sub                (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal MessageText As BSTR)
-Type OnKickEvent As Sub                (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal KickedUser As BSTR)
-Type OnInviteEvent As Sub              (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal Channel As BSTR)
-Type OnPingEvent As Sub                (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Server As BSTR)
-Type OnPongEvent As Sub                (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Server As BSTR)
-Type OnModeEvent As Sub                (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal Channel As BSTR, ByVal Mode As BSTR, ByVal UserName As BSTR)
-Type OnCtcpPingRequestEvent As Sub     (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal TimeValue As BSTR)
-Type OnCtcpTimeRequestEvent As Sub     (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR)
-Type OnCtcpUserInfoRequestEvent As Sub (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR)
-Type OnCtcpVersionRequestEvent As Sub  (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR)
-Type OnCtcpActionEvent As Sub          (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal ActionText As BSTR)
-Type OnCtcpPingResponseEvent As Sub    (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal TimeValue As BSTR)
-Type OnCtcpTimeResponseEvent As Sub    (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal TimeValue As BSTR)
-Type OnCtcpUserInfoResponseEvent As Sub(ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal UserInfo As BSTR)
-Type OnCtcpVersionResponseEvent As Sub (ByVal lpParameter As LPCLIENTDATA, ByVal pIrcPrefix As IrcPrefix Ptr, ByVal ToUser As BSTR, ByVal Version As BSTR)
+Type OnSendedRawMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pBytes As Const UByte Ptr, _
+	ByVal Count As Integer _
+)
+Type OnReceivedRawMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pBytes As Const UByte Ptr, _
+	ByVal Count As Integer _
+)
+Type OnServerErrorEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal IrcMessage As BSTR _
+)
+Type OnNumericMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal IrcNumericCommand As Integer, _
+	ByVal MessageText As BSTR _
+)
+Type OnServerMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal IrcCommand As BSTR, _
+	ByVal MessageText As BSTR _
+)
+Type OnNoticeEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal NoticeText As BSTR _
+)
+Type OnChannelNoticeEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal NoticeText As BSTR _
+)
+Type OnChannelMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal MessageText As BSTR _
+)
+Type OnPrivateMessageEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal MessageText As BSTR _
+)
+Type OnUserJoinedEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR _
+)
+Type OnUserLeavedEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal MessageText As BSTR _
+)
+Type OnNickChangedEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal NewNick As BSTR _
+)
+Type OnTopicEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal TopicText As BSTR _
+)
+Type OnQuitEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal MessageText As BSTR _
+)
+Type OnKickEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal KickedUser As BSTR _
+)
+Type OnInviteEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal Channel As BSTR _
+)
+Type OnPingEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Server As BSTR _
+)
+Type OnPongEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Server As BSTR _
+)
+Type OnModeEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal Channel As BSTR, _
+	ByVal Mode As BSTR, _
+	ByVal UserName As BSTR _
+)
+Type OnCtcpPingRequestEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal TimeValue As BSTR _
+)
+Type OnCtcpTimeRequestEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR _
+)
+Type OnCtcpUserInfoRequestEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR _
+)
+Type OnCtcpVersionRequestEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR _
+)
+Type OnCtcpActionEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal ActionText As BSTR _
+)
+Type OnCtcpPingResponseEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal TimeValue As BSTR _
+)
+Type OnCtcpTimeResponseEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal TimeValue As BSTR _
+)
+Type OnCtcpUserInfoResponseEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal UserInfo As BSTR _
+)
+Type OnCtcpVersionResponseEvent As Sub( _
+	ByVal lpParameter As LPCLIENTDATA, _
+	ByVal pIrcPrefix As IrcPrefix Ptr, _
+	ByVal ToUser As BSTR, _
+	ByVal Version As BSTR _
+)
 
 Type IrcEvents
 	lpfnSendedRawMessageEvent As OnSendedRawMessageEvent
