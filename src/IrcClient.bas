@@ -2840,7 +2840,6 @@ Public Function IrcClientMainLoop( _
 			Case WAIT_IO_COMPLETION
 				' The asynchronous procedure has ended
 				' we continue to wait
-				Return pIrcClient->ErrorCode
 
 			Case WAIT_TIMEOUT
 				' Timed out
@@ -2858,6 +2857,8 @@ Public Function IrcClientMainLoop( _
 		End Select
 
 	Loop
+
+	Return pIrcClient->ErrorCode
 
 End Function
 
