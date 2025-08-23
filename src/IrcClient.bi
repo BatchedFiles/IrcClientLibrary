@@ -295,7 +295,7 @@ Declare Function IrcClientOpenConnection( _
 	ByVal Password As BSTR, _
 	ByVal Nick As BSTR, _
 	ByVal User As BSTR, _
-	ByVal ModeFlags As Long, _
+	ByVal ModeFlags As Integer, _
 	ByVal RealName As BSTR _
 )As HRESULT
 

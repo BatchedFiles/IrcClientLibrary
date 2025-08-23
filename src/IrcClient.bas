@@ -51,6 +51,8 @@ Declare Sub RtlZeroMemory Alias "RtlZeroMemory"( _
 #define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
 #define ZeroMemory(d, l) RtlZeroMemory((d), (l))
 
+#define WM_SOCKET WM_USER + 1
+
 Const EmptyString = ""
 
 Const PingString = "PING"
@@ -1520,6 +1522,84 @@ Private Function IrcClientCleanup( _
 
 End Function
 
+Private Function HiddenWindowWndProc( _
+		ByVal hWin As HWND, _
+		ByVal wMsg As UINT, _
+		ByVal wParam As WPARAM, _
+		ByVal lParam As LPARAM _
+	) As LRESULT
+
+	Dim pIrcClient As IrcClient Ptr = Any
+
+	If wMsg = WM_CREATE Then
+		Dim pStruct As CREATESTRUCT Ptr = CPtr(CREATESTRUCT Ptr, lParam)
+		pIrcClient = pStruct->lpCreateParams
+		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pIrcClient))
+
+		Return 0
+	End If
+
+	pIrcClient = Cast(Any Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+
+	Select Case wMsg
+
+		Case WM_SOCKET
+            ' SOCKET s = (SOCKET)wParam;
+            ' long lEvent = lParam;
+
+		Case Else
+			Return DefWindowProc(hWin, wMsg, wParam, lParam)
+
+	End Select
+
+	Return 0
+
+End Function
+
+Private Function CreateHiddenWindow( _
+		ByVal pIrcClient As IrcClient Ptr _
+	)As HWND
+
+	Const HiddenWindowClassName = __TEXT("HiddenWindow")
+	Dim hInst As HINSTANCE = NULL
+
+	Dim wcls As WNDCLASSEX = Any
+	With wcls
+		.cbSize        = SizeOf(WNDCLASSEX)
+		.style         = 0
+		.lpfnWndProc   = @HiddenWindowWndProc
+		.cbClsExtra    = 0
+		.cbWndExtra    = 0
+		.hInstance     = hInst
+		.hIcon         = NULL
+		.hCursor       = NULL
+		.hbrBackground = NULL
+		.lpszMenuName  = Cast(TCHAR Ptr, NULL)
+		.lpszClassName = @HiddenWindowClassName
+		.hIconSm       = NULL
+	End With
+
+	Dim resRegister As ATOM = RegisterClassEx(@wcls)
+	If resRegister = 0 Then
+		Return NULL
+	End If
+
+	Dim hWin As HWND = CreateWindowEx( _
+		0, _
+		@HiddenWindowClassName, _
+		NULL, _
+		0, _
+		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, _
+		HWND_MESSAGE, _
+		NULL, _
+		hInst, _
+		NULL _
+	)
+
+	Return hWin
+
+End Function
+
 Private Function ResolveHostW( _
 		ByVal Host As PCWSTR, _
 		ByVal Port As PCWSTR, _
@@ -2012,7 +2092,7 @@ Private Function MakeConnectionString( _
 		ByVal Password As BSTR, _
 		ByVal Nick As BSTR, _
 		ByVal User As BSTR, _
-		ByVal ModeFlags As Long, _
+		ByVal ModeFlags As Integer, _
 		ByVal RealName As BSTR _
 	)As ValueBSTR
 
@@ -2576,41 +2656,47 @@ Public Function CreateIrcClient( _
 	Dim pIrcClient As IrcClient Ptr = Allocate(SizeOf(IrcClient))
 
 	If pIrcClient Then
-		Dim hEvent As HANDLE = CreateEventW(NULL, True, False, NULL)
+		Dim hWin As HWND = CreateHiddenWindow(pIrcClient)
 
-		If hEvent Then
-			Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
+		If hWin Then
+			Dim hEvent As HANDLE = CreateEventW(NULL, True, False, NULL)
 
-			If pRecvContext Then
-				Dim hr As HRESULT = IrcClientStartup()
+			If hEvent Then
+				Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
 
-				If SUCCEEDED(hr) Then
-					pIrcClient->pRecvContext = pRecvContext
-					pIrcClient->pRecvContext->pIrcClient = pIrcClient
-					pIrcClient->pRecvContext->cbLength = 0
+				If pRecvContext Then
+					Dim hr As HRESULT = IrcClientStartup()
 
-					pIrcClient->CodePage = CP_UTF8
-					pIrcClient->ClientNick = Type<ValueBSTR>()
-					pIrcClient->ClientVersion = Type<ValueBSTR>()
-					pIrcClient->ClientUserInfo = Type<ValueBSTR>()
-					pIrcClient->ErrorCode = S_OK
-					pIrcClient->IsInitialized = False
+					If SUCCEEDED(hr) Then
+						pIrcClient->pRecvContext = pRecvContext
+						pIrcClient->pRecvContext->pIrcClient = pIrcClient
+						pIrcClient->pRecvContext->cbLength = 0
 
-					pIrcClient->hEvent = hEvent
-					pIrcClient->lpParameter = lpParameter
-					CopyMemory( _
-						@pIrcClient->pEvents, _
-						pEvents, _
-						SizeOf(IrcEvents) _
-					)
+						pIrcClient->CodePage = CP_UTF8
+						pIrcClient->ClientNick = Type<ValueBSTR>()
+						pIrcClient->ClientVersion = Type<ValueBSTR>()
+						pIrcClient->ClientUserInfo = Type<ValueBSTR>()
+						pIrcClient->ErrorCode = S_OK
+						pIrcClient->IsInitialized = False
 
-					Return pIrcClient
+						pIrcClient->hEvent = hEvent
+						pIrcClient->lpParameter = lpParameter
+						CopyMemory( _
+							@pIrcClient->pEvents, _
+							pEvents, _
+							SizeOf(IrcEvents) _
+						)
+
+						Return pIrcClient
+					End If
+
+					DeAllocate(pRecvContext)
 				End If
 
-				DeAllocate(pRecvContext)
+				CloseHandle(hEvent)
 			End If
 
-			CloseHandle(hEvent)
+			DestroyWindow(hWin)
 		End If
 
 		DeAllocate(pIrcClient)
@@ -2733,7 +2819,7 @@ Public Function IrcClientOpenConnection( _
 		ByVal Password As BSTR, _
 		ByVal Nick As BSTR, _
 		ByVal User As BSTR, _
-		ByVal ModeFlags As Long, _
+		ByVal ModeFlags As Integer, _
 		ByVal RealName As BSTR _
 	)As HRESULT
 
