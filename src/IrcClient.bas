@@ -1,57 +1,9 @@
 #include once "IrcClient.bi"
-#include once "win\mswsock.bi"
-#include once "win\shlwapi.bi"
-#include once "win\winsock2.bi"
-#include once "win\ws2tcpip.bi"
 #include once "CharacterConstants.bi"
+#include once "Win95Socket.bi"
+#include once "win\shlwapi.bi"
 
-' HACK for Win95
-#ifdef Allocate
-#undef Allocate
-#endif
-#ifdef DeAllocate
-#undef DeAllocate
-#endif
-#ifdef RtlCopyMemory
-#undef RtlCopyMemory
-#endif
-#ifdef RtlMoveMemory
-#undef RtlMoveMemory
-#endif
-#ifdef RtlZeroMemory
-#undef RtlZeroMemory
-#endif
-#ifdef CopyMemory
-#undef CopyMemory
-#endif
-#ifdef MoveMemory
-#undef MoveMemory
-#endif
-#ifdef ZeroMemory
-#undef ZeroMemory
-#endif
-
-Declare Sub RtlCopyMemory Alias "RtlCopyMemory"( _
-	ByVal Destination As Any Ptr, _
-	ByVal Source As Const Any Ptr, _
-	ByVal Length As Integer _
-)
-Declare Sub RtlMoveMemory Alias "RtlMoveMemory"( _
-	ByVal Destination As Any Ptr, _
-	ByVal Source As Const Any Ptr, _
-	ByVal Length As Integer _
-)
-Declare Sub RtlZeroMemory Alias "RtlZeroMemory"( _
-	ByVal Destination As Any Ptr, _
-	ByVal Length As Integer _
-)
-#define Allocate(dwBytes) HeapAlloc(GetProcessHeap(), 0, (dwBytes))
-#define DeAllocate(lpMem) HeapFree(GetProcessHeap(), 0, (lpMem))
-#define CopyMemory(d, s, l) RtlCopyMemory((d), (s), (l))
-#define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
-#define ZeroMemory(d, l) RtlZeroMemory((d), (l))
-
-#define WM_SOCKET WM_USER + 1
+#include once "Win95Hack.bi"
 
 Const EmptyString = ""
 
@@ -143,18 +95,6 @@ End Enum
 
 'IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - Len(CrLf)
 Const VALUEBSTR_BUFFER_CAPACITY As Integer = 510
-Const SocketListCapacity As Integer = 16
-
-Dim Shared lpfnConnectEx As LPFN_CONNECTEX
-
-#ifndef DEFINE_GUID
-#define DEFINE_GUID(n, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) Extern n Alias #n As GUID : _
-	Dim n As GUID = Type(l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8})
-#endif
-
-DEFINE_GUID(GUID_WSAID_CONNECTEX, _
-	&h25a207b9, &hddf3, &h4660, &h8e, &he9, &h76, &he5, &h8c, &h74, &h06, &h3e _
-)
 
 Type ValueBSTR
 
@@ -209,31 +149,19 @@ Type IrcPrefixInternal
 End Type
 
 Type SendClientContext
-	Overlap As WSAOVERLAPPED
 	pIrcClient As IrcClient Ptr
 	cbLength As Integer
 	Buffer As ZString * (SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM + 1)
 End Type
 
 Type RecvClientContext
-	Overlap As WSAOVERLAPPED
 	pIrcClient As IrcClient Ptr
 	cbLength As Integer
 	Buffer As ZString * (IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM + 1)
 End Type
 
-Type SocketNode
-	ClientSocket As SOCKET
-	Padding1 As Integer
-	AddressFamily As Long
-	SocketType As Long
-	Protocol As Long
-	Padding2 As Long
-End Type
-
 Type _IrcClient
-	hEvent As HANDLE
-	ClientSocket As SOCKET
+	ClientSocket As Win95Socket Ptr
 	pEvents As IrcEvents
 	lpParameter As LPCLIENTDATA
 	pRecvContext As RecvClientContext Ptr
@@ -241,6 +169,7 @@ Type _IrcClient
 	ClientNick As ValueBSTR
 	ClientVersion As ValueBSTR
 	ClientUserInfo As ValueBSTR
+	ConnectionString As ValueBSTR
 	ErrorCode As HRESULT
 	IsInitialized As Boolean
 End Type
@@ -248,6 +177,8 @@ End Type
 Declare Function StartRecvOverlapped( _
 	ByVal pIrcClient As IrcClient Ptr _
 )As HRESULT
+
+' ValueBSTR function
 
 Private Constructor ValueBSTR()
 
@@ -1459,373 +1390,6 @@ Private Function ParseData( _
 
 End Function
 
-Private Function IrcClientStartup( _
-	)As HRESULT
-
-	Scope
-		Dim objWsaData As WSAData = Any
-		Dim dwError As Long = WSAStartup(MAKEWORD(2, 2), @objWsaData)
-		If dwError <> NO_ERROR Then
-			Return HRESULT_FROM_WIN32(dwError)
-		End If
-	End Scope
-
-	Scope
-		Dim ListenSocket As SOCKET = WSASocketW( _
-			AF_INET, _
-			SOCK_STREAM, _
-			IPPROTO_TCP, _
-			NULL, _
-			0, _
-			WSA_FLAG_OVERLAPPED _
-		)
-		If ListenSocket = INVALID_SOCKET Then
-			Dim dwError As Long = WSAGetLastError()
-			Return HRESULT_FROM_WIN32(dwError)
-		End If
-
-		Dim dwBytes As DWORD = Any
-		Dim resLoadConnectEx As Long = WSAIoctl( _
-			ListenSocket, _
-			SIO_GET_EXTENSION_FUNCTION_POINTER, _
-			@GUID_WSAID_CONNECTEX, _
-			SizeOf(GUID), _
-			@lpfnConnectEx, _
-			SizeOf(lpfnConnectEx), _
-			@dwBytes, _
-			NULL, _
-			NULL _
-		)
-		If resLoadConnectEx = SOCKET_ERROR Then
-			Dim dwError As Long = WSAGetLastError()
-			closesocket(ListenSocket)
-			Return HRESULT_FROM_WIN32(dwError)
-		End If
-
-		closesocket(ListenSocket)
-
-	End Scope
-
-	Return S_OK
-
-End Function
-
-Private Function IrcClientCleanup( _
-	)As HRESULT
-
-	Dim dwError As Long = WSACleanup()
-	If dwError <> NO_ERROR Then
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	Return S_OK
-
-End Function
-
-Private Function HiddenWindowWndProc( _
-		ByVal hWin As HWND, _
-		ByVal wMsg As UINT, _
-		ByVal wParam As WPARAM, _
-		ByVal lParam As LPARAM _
-	) As LRESULT
-
-	Dim pIrcClient As IrcClient Ptr = Any
-
-	If wMsg = WM_CREATE Then
-		Dim pStruct As CREATESTRUCT Ptr = CPtr(CREATESTRUCT Ptr, lParam)
-		pIrcClient = pStruct->lpCreateParams
-		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pIrcClient))
-
-		Return 0
-	End If
-
-	pIrcClient = Cast(Any Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-
-	Select Case wMsg
-
-		Case WM_SOCKET
-            ' SOCKET s = (SOCKET)wParam;
-            ' long lEvent = lParam;
-
-		Case Else
-			Return DefWindowProc(hWin, wMsg, wParam, lParam)
-
-	End Select
-
-	Return 0
-
-End Function
-
-Private Function CreateHiddenWindow( _
-		ByVal pIrcClient As IrcClient Ptr _
-	)As HWND
-
-	Const HiddenWindowClassName = __TEXT("HiddenWindow")
-	Dim hInst As HINSTANCE = NULL
-
-	Dim wcls As WNDCLASSEX = Any
-	With wcls
-		.cbSize        = SizeOf(WNDCLASSEX)
-		.style         = 0
-		.lpfnWndProc   = @HiddenWindowWndProc
-		.cbClsExtra    = 0
-		.cbWndExtra    = 0
-		.hInstance     = hInst
-		.hIcon         = NULL
-		.hCursor       = NULL
-		.hbrBackground = NULL
-		.lpszMenuName  = Cast(TCHAR Ptr, NULL)
-		.lpszClassName = @HiddenWindowClassName
-		.hIconSm       = NULL
-	End With
-
-	Dim resRegister As ATOM = RegisterClassEx(@wcls)
-	If resRegister = 0 Then
-		Return NULL
-	End If
-
-	Dim hWin As HWND = CreateWindowEx( _
-		0, _
-		@HiddenWindowClassName, _
-		NULL, _
-		0, _
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, _
-		HWND_MESSAGE, _
-		NULL, _
-		hInst, _
-		NULL _
-	)
-
-	Return hWin
-
-End Function
-
-Private Function ResolveHostW( _
-		ByVal Host As PCWSTR, _
-		ByVal Port As PCWSTR, _
-		ByVal ppAddressList As ADDRINFOW Ptr Ptr _
-	)As HRESULT
-
-	' Dim hints As ADDRINFOW = Any
-	' ZeroMemory(@hints, SizeOf(ADDRINFOW))
-
-	' With hints
-	' 	.ai_family = AF_UNSPEC ' AF_INET, AF_INET6
-	' 	.ai_socktype = SOCK_STREAM
-	' 	.ai_protocol = IPPROTO_TCP
-	' End With
-
-	*ppAddressList = NULL
-
-	' Dim resAddrInfo As INT_ = GetAddrInfoW( _
-	' 	Host, _
-	' 	Port, _
-	' 	@hints, _
-	' 	ppAddressList _
-	' )
-	Dim resAddrInfo As INT_ = GetAddrInfoW( _
-		Host, _
-		Port, _
-		NULL, _
-		ppAddressList _
-	)
-	If resAddrInfo Then
-		Return HRESULT_FROM_WIN32(resAddrInfo)
-	End If
-
-	Return S_OK
-
-End Function
-
-Public Function CreateSocketsAndBindW( _
-		ByVal LocalAddress As PCWSTR, _
-		ByVal LocalPort As PCWSTR, _
-		ByVal pSocketList As SocketNode Ptr, _
-		ByVal Count As Integer, _
-		ByVal pSockets As Integer Ptr _
-	)As HRESULT
-
-	Dim pAddressList As ADDRINFOW Ptr = NULL
-	Dim hr As HRESULT = ResolveHostW( _
-		LocalAddress, _
-		LocalPort, _
-		@pAddressList _
-	)
-	If FAILED(hr) Then
-		*pSockets = 0
-		Return hr
-	End If
-
-	Dim pAddressNode As ADDRINFOW Ptr = pAddressList
-	Dim BindResult As Long = 0
-	Dim SocketCount As Integer = 0
-
-	Dim dwError As Long = 0
-	Do
-		If SocketCount > Count Then
-			dwError = ERROR_INSUFFICIENT_BUFFER
-			Exit Do
-		End If
-
-		Dim ClientSocket As SOCKET = WSASocketW( _
-			pAddressNode->ai_family, _
-			pAddressNode->ai_socktype, _
-			pAddressNode->ai_protocol, _
-			CPtr(WSAPROTOCOL_INFOW Ptr, NULL), _
-			0, _
-			WSA_FLAG_OVERLAPPED _
-		)
-		If ClientSocket = INVALID_SOCKET Then
-			dwError = WSAGetLastError()
-			pAddressNode = pAddressNode->ai_next
-			Continue Do
-		End If
-
-		BindResult = bind( _
-			ClientSocket, _
-			Cast(LPSOCKADDR, pAddressNode->ai_addr), _
-			pAddressNode->ai_addrlen _
-		)
-		If BindResult Then
-			dwError = WSAGetLastError()
-			closesocket(ClientSocket)
-			pAddressNode = pAddressNode->ai_next
-			Continue Do
-		End If
-
-		pSocketList[SocketCount].ClientSocket = ClientSocket
-		pSocketList[SocketCount].AddressFamily = pAddressNode->ai_family
-		pSocketList[SocketCount].SocketType = pAddressNode->ai_socktype
-		pSocketList[SocketCount].Protocol = pAddressNode->ai_protocol
-
-		SocketCount += 1
-		pAddressNode = pAddressNode->ai_next
-
-	Loop While pAddressNode
-
-	FreeAddrInfoW(pAddressList)
-
-	If BindResult Then
-		For i As Integer = 0 To SocketCount - 1
-			closesocket(pSocketList[i].ClientSocket)
-		Next
-		*pSockets = 0
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	*pSockets = SocketCount
-
-	Return S_OK
-
-End Function
-
-Private Function ConnectToServerW( _
-		ByVal LocalAddress As PCWSTR, _
-		ByVal LocalPort As PCWSTR, _
-		ByVal RemoteAddress As PCWSTR, _
-		ByVal RemotePort As PCWSTR, _
-		ByVal pClientSocket As SOCKET Ptr _
-	)As HRESULT
-
-	Dim Count As Integer = SocketListCapacity
-
-	Dim pSocketList As SocketNode Ptr = Allocate(Count * SizeOf(SocketNode))
-	If pSocketList = 0 Then
-		*pClientSocket = INVALID_SOCKET
-		Return E_OUTOFMEMORY
-	End If
-
-	Dim SocketLength As Integer = Any
-	Dim hrBind As HRESULT = CreateSocketsAndBindW( _
-		LocalAddress, _
-		LocalPort, _
-		pSocketList, _
-		Count, _
-		@SocketLength _
-	)
-	If FAILED(hrBind) Then
-		Deallocate(pSocketList)
-		*pClientSocket = INVALID_SOCKET
-		Return hrBind
-	End If
-
-	Dim pAddressList As addrinfoW Ptr = NULL
-	Dim hrResolve As HRESULT = ResolveHostW(RemoteAddress, RemotePort, @pAddressList)
-	If FAILED(hrResolve) Then
-		For i As Integer = 0 To SocketLength - 1
-			closesocket(pSocketList[i].ClientSocket)
-		Next
-		Deallocate(pSocketList)
-		*pClientSocket = INVALID_SOCKET
-		Return hrResolve
-	End If
-
-	Dim ConnectResult As Long = SOCKET_ERROR
-	Dim dwError As Long = 0
-
-	For i As Integer = 0 To SocketLength - 1
-		Dim pAddress As addrinfoW Ptr = pAddressList
-
-		Do
-			ConnectResult = connect( _
-				pSocketList[i].ClientSocket, _
-				Cast(LPSOCKADDR, pAddress->ai_addr), _
-				pAddress->ai_addrlen _
-			)
-			dwError = WSAGetLastError()
-
-			If ConnectResult = 0 Then
-				*pClientSocket = pSocketList[i].ClientSocket
-				Exit For
-			End If
-
-			pAddress = pAddress->ai_next
-
-		Loop Until pAddress = 0
-	Next
-
-	FreeAddrInfoW(pAddressList)
-
-	If ConnectResult <> 0 Then
-		For i As Integer = 0 To SocketLength - 1
-			closesocket(pSocketList[i].ClientSocket)
-		Next
-		Deallocate(pSocketList)
-		*pClientSocket = INVALID_SOCKET
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	For i As Integer = 0 To SocketLength - 1
-		If pSocketList[i].ClientSocket <> *pClientSocket Then
-			closesocket(pSocketList[i].ClientSocket)
-		End If
-	Next
-	Deallocate(pSocketList)
-
-	Return S_OK
-
-End Function
-
-Private Function CloseSocketConnection( _
-		ByVal ClientSocket As SOCKET _
-	)As HRESULT
-
-	Dim res As Integer = shutdown(ClientSocket, SD_BOTH)
-	If res <> 0 Then
-		Dim dwError As Long = WSAGetLastError()
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	res = closesocket(ClientSocket)
-	If res <> 0 Then
-		Dim dwError As Long = WSAGetLastError()
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	Return S_OK
-
-End Function
-
 Private Function FindCrLfA( _
 		ByVal Buffer As ZString Ptr, _
 		ByVal BufferLength As Integer, _
@@ -1833,9 +1397,11 @@ Private Function FindCrLfA( _
 	)As Boolean
 
 	For i As Integer = 0 To BufferLength - Len(NewLineString)
-		If Buffer[i] = Characters.CarriageReturn AndAlso Buffer[i + 1] = Characters.LineFeed Then
-			*pIndex = i
-			Return True
+		If Buffer[i] = Characters.CarriageReturn Then
+			If Buffer[i + 1] = Characters.LineFeed Then
+				*pIndex = i
+				Return True
+			End If
 		End If
 	Next
 
@@ -1844,25 +1410,131 @@ Private Function FindCrLfA( _
 
 End Function
 
-Private Sub ReceiveCompletionRoutine( _
-		ByVal dwError As DWORD, _
+Private Sub SocketOnWriteData( _
+		ByVal lpParameter As Any Ptr, _
 		ByVal cbTransferred As DWORD, _
-		ByVal lpOverlapped As LPWSAOVERLAPPED, _
-		ByVal dwFlags As DWORD _
+		ByVal dwError As DWORD _
 	)
 
-	Dim pContext As RecvClientContext Ptr = CPtr(RecvClientContext Ptr, lpOverlapped)
+	Dim pContext As SendClientContext Ptr = CPtr(SendClientContext Ptr, lpParameter)
 	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
 
 	If dwError Then
 		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
-		SetEvent(pIrcClient->hEvent)
+	Else
+		If CUInt(pIrcClient->pEvents.lpfnSendedRawMessageEvent) Then
+			pContext->Buffer[pContext->cbLength] = Characters.NullChar
+			pIrcClient->pEvents.lpfnSendedRawMessageEvent( _
+				pIrcClient->lpParameter, _
+				@pContext->Buffer, _
+				pContext->cbLength _
+			)
+		End If
+	End If
+
+	Deallocate(pContext)
+
+End Sub
+
+Private Function StartSendOverlapped( _
+		ByVal pIrcClient As IrcClient Ptr, _
+		ByRef strData As ValueBSTR _
+	)As HRESULT
+
+	Dim pContext As SendClientContext Ptr = Allocate(SizeOf(SendClientContext))
+	If pContext = 0 Then
+		Return E_OUTOFMEMORY
+	End If
+
+	pContext->cbLength = WideCharToMultiByte( _
+		pIrcClient->CodePage, _
+		0, _
+		@strData.WChars(0), _
+		Len(strData), _
+		@pContext->Buffer, _
+		SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
+		NULL, _
+		NULL _
+	)
+	If pContext->cbLength = 0 Then
+		Dim dwError As DWORD = GetLastError()
+		Deallocate(pContext)
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+
+	pContext->pIrcClient = pIrcClient
+
+	pContext->Buffer[pContext->cbLength] = Characters.CarriageReturn
+	pContext->Buffer[pContext->cbLength + 1] = Characters.LineFeed
+
+	Dim pState As Win95AsyncResult Ptr = Any
+	Dim hrSend As HRESULT = Win95SocketBeginWrite( _
+		pIrcClient->ClientSocket, _
+		pContext, _
+		@pContext->Buffer, _
+		min(pContext->cbLength + Len(NewLineString), SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM), _
+		@SocketOnWriteData, _
+		@pState _
+	)
+	If FAILED(hrSend) Then
+		Deallocate(pContext)
+		Return hrSend
+	End If
+
+	Return S_OK
+
+End Function
+
+Private Sub SocketOnConnect( _
+		ByVal lpParameter As Any Ptr, _
+		ByVal dwError As DWORD _
+	)
+
+	Dim pIrcClient As IrcClient Ptr = lpParameter
+
+	Dim hrRecv As HRESULT = StartRecvOverlapped(pIrcClient)
+	If FAILED(hrRecv) Then
+		DestroyWin95Socket(pIrcClient->ClientSocket)
+		pIrcClient->ErrorCode = hrRecv
+		Exit Sub
+	End If
+
+	Dim hrSend As HRESULT = StartSendOverlapped( _
+		pIrcClient, _
+		pIrcClient->ConnectionString _
+	)
+	If FAILED(hrSend) Then
+		DestroyWin95Socket(pIrcClient->ClientSocket)
+		pIrcClient->ErrorCode = hrSend
+		Exit Sub
+	End If
+
+End Sub
+
+Private Sub SocketOnDisconnect( _
+		ByVal lpParameter As Any Ptr _
+	)
+
+	Dim pIrcClient As IrcClient Ptr = lpParameter
+
+End Sub
+
+Private Sub SocketOnReceiveData( _
+		ByVal lpParameter As Any Ptr, _
+		ByVal cbTransferred As DWORD, _
+		ByVal dwError As DWORD _
+	)
+
+	Dim pContext As RecvClientContext Ptr = CPtr(RecvClientContext Ptr, lpParameter)
+	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
+
+	If dwError Then
+		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
 		Exit Sub
 	End If
 
 	If cbTransferred = 0 Then
 		pIrcClient->ErrorCode = S_FALSE
-		SetEvent(pIrcClient->hEvent)
 		Exit Sub
 	End If
 
@@ -1918,7 +1590,6 @@ Private Sub ReceiveCompletionRoutine( _
 					Dim hr As HRESULT = ParseData(pIrcClient, bstrServerResponse)
 					If FAILED(hr) Then
 						pIrcClient->ErrorCode = hr
-						SetEvent(pIrcClient->hEvent)
 						Exit Sub
 					End If
 				End Scope
@@ -1951,7 +1622,6 @@ Private Sub ReceiveCompletionRoutine( _
 	Dim hr As HRESULT = StartRecvOverlapped(pIrcClient)
 	If FAILED(hr) Then
 		pIrcClient->ErrorCode = hr
-		SetEvent(pIrcClient->hEvent)
 	End If
 
 End Sub
@@ -1960,128 +1630,21 @@ Private Function StartRecvOverlapped( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 
-	Const WsaBufBuffersCount As DWORD = 1
-
 	Dim Length As Integer = IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM - pIrcClient->pRecvContext->cbLength
 	Dim lpBuf As ZString Ptr = @pIrcClient->pRecvContext->Buffer[pIrcClient->pRecvContext->cbLength]
 
-	Dim RecvBuf As WSABUF = Any
-	RecvBuf.len = Cast(ULONG, Length)
-	RecvBuf.buf = lpBuf
-
-	Dim lpOverlap As OVERLAPPED Ptr = @pIrcClient->pRecvContext->Overlap
-	ZeroMemory(lpOverlap, SizeOf(WSAOVERLAPPED))
-
-	Dim Flags As DWORD = 0
-	Dim res As Long = WSARecv( _
+	Dim pState As Win95AsyncResult Ptr = Any
+	Dim hrReceive As HRESULT = Win95SocketBeginRead( _
 		pIrcClient->ClientSocket, _
-		@RecvBuf, _
-		WsaBufBuffersCount, _
-		NULL, _
-		@Flags, _
-		lpOverlap, _
-		@ReceiveCompletionRoutine _
+		pIrcClient->pRecvContext, _
+		lpBuf, _
+		Length, _
+		@SocketOnReceiveData, _
+		@pState _
 	)
 
-	If res Then
-		Dim dwError As Long = WSAGetLastError()
-
-		If dwError = WSA_IO_PENDING Then
-			Return S_OK
-		End If
-
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	Return S_OK
-
-End Function
-
-Private Sub SendCompletionRoutine( _
-		ByVal dwError As DWORD, _
-		ByVal cbTransferred As DWORD, _
-		ByVal lpOverlapped As LPWSAOVERLAPPED, _
-		ByVal dwFlags As DWORD _
-	)
-
-	Dim pContext As SendClientContext Ptr = CPtr(SendClientContext Ptr, lpOverlapped)
-	Dim pIrcClient As IrcClient Ptr = pContext->pIrcClient
-
-	If dwError Then
-		pIrcClient->ErrorCode = HRESULT_FROM_WIN32(dwError)
-		SetEvent(pIrcClient->hEvent)
-	Else
-		If CUInt(pIrcClient->pEvents.lpfnSendedRawMessageEvent) Then
-			pContext->Buffer[pContext->cbLength] = Characters.NullChar
-			pIrcClient->pEvents.lpfnSendedRawMessageEvent( _
-				pIrcClient->lpParameter, _
-				@pContext->Buffer, _
-				pContext->cbLength _
-			)
-		End If
-	End If
-
-	Deallocate(pContext)
-
-End Sub
-
-Private Function StartSendOverlapped( _
-		ByVal pIrcClient As IrcClient Ptr, _
-		ByRef strData As ValueBSTR _
-	)As HRESULT
-
-	Dim pContext As SendClientContext Ptr = Allocate(SizeOf(SendClientContext))
-	If pContext = 0 Then
-		Return E_OUTOFMEMORY
-	End If
-
-	pContext->cbLength = WideCharToMultiByte( _
-		pIrcClient->CodePage, _
-		0, _
-		@strData.WChars(0), _
-		Len(strData), _
-		@pContext->Buffer, _
-		SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM, _
-		NULL, _
-		NULL _
-	)
-	If pContext->cbLength = 0 Then
-		Dim dwError As DWORD = GetLastError()
-		Deallocate(pContext)
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	ZeroMemory(@pContext->Overlap, SizeOf(WSAOVERLAPPED))
-
-	pContext->pIrcClient = pIrcClient
-
-	pContext->Buffer[pContext->cbLength] = Characters.CarriageReturn
-	pContext->Buffer[pContext->cbLength + 1] = Characters.LineFeed
-
-	Dim SendBuf As WSABUF = Any
-	SendBuf.len = Cast(ULONG, min(pContext->cbLength + Len(NewLineString), SENDOVERLAPPEDDATA_BUFFERLENGTHMAXIMUM))
-	SendBuf.buf = @pContext->Buffer
-
-	Const dwSendFlags As DWORD = 0
-	Dim res As Long = WSASend( _
-		pIrcClient->ClientSocket, _
-		@SendBuf, _
-		1, _
-		NULL, _
-		dwSendFlags, _
-		@pContext->Overlap, _
-		@SendCompletionRoutine _
-	)
-
-	If res Then
-		Dim dwError As Long = WSAGetLastError()
-
-		If dwError = WSA_IO_PENDING Then
-			Return S_OK
-		End If
-
-		Deallocate(pContext)
-		Return HRESULT_FROM_WIN32(dwError)
+	If FAILED(hrReceive) Then
+		Return hrReceive
 	End If
 
 	Return S_OK
@@ -2656,47 +2219,36 @@ Public Function CreateIrcClient( _
 	Dim pIrcClient As IrcClient Ptr = Allocate(SizeOf(IrcClient))
 
 	If pIrcClient Then
-		Dim hWin As HWND = CreateHiddenWindow(pIrcClient)
 
-		If hWin Then
-			Dim hEvent As HANDLE = CreateEventW(NULL, True, False, NULL)
+		Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
 
-			If hEvent Then
-				Dim pRecvContext As RecvClientContext Ptr = Allocate(SizeOf(RecvClientContext))
+		If pRecvContext Then
 
-				If pRecvContext Then
-					Dim hr As HRESULT = IrcClientStartup()
+			Dim pSock As Win95Socket Ptr = CreateWin95Socket()
 
-					If SUCCEEDED(hr) Then
-						pIrcClient->pRecvContext = pRecvContext
-						pIrcClient->pRecvContext->pIrcClient = pIrcClient
-						pIrcClient->pRecvContext->cbLength = 0
+			If pSock Then
+				pIrcClient->ClientSocket = pSock
+				pIrcClient->pRecvContext = pRecvContext
+				pIrcClient->pRecvContext->pIrcClient = pIrcClient
+				pIrcClient->pRecvContext->cbLength = 0
+				pIrcClient->CodePage = CP_UTF8
+				pIrcClient->ClientNick = Type<ValueBSTR>()
+				pIrcClient->ClientVersion = Type<ValueBSTR>()
+				pIrcClient->ClientUserInfo = Type<ValueBSTR>()
+				pIrcClient->ErrorCode = S_OK
+				pIrcClient->IsInitialized = False
 
-						pIrcClient->CodePage = CP_UTF8
-						pIrcClient->ClientNick = Type<ValueBSTR>()
-						pIrcClient->ClientVersion = Type<ValueBSTR>()
-						pIrcClient->ClientUserInfo = Type<ValueBSTR>()
-						pIrcClient->ErrorCode = S_OK
-						pIrcClient->IsInitialized = False
+				pIrcClient->lpParameter = lpParameter
+				CopyMemory( _
+					@pIrcClient->pEvents, _
+					pEvents, _
+					SizeOf(IrcEvents) _
+				)
 
-						pIrcClient->hEvent = hEvent
-						pIrcClient->lpParameter = lpParameter
-						CopyMemory( _
-							@pIrcClient->pEvents, _
-							pEvents, _
-							SizeOf(IrcEvents) _
-						)
-
-						Return pIrcClient
-					End If
-
-					DeAllocate(pRecvContext)
-				End If
-
-				CloseHandle(hEvent)
+				Return pIrcClient
 			End If
 
-			DestroyWindow(hWin)
+			DeAllocate(pRecvContext)
 		End If
 
 		DeAllocate(pIrcClient)
@@ -2710,13 +2262,9 @@ Public Sub DestroyIrcClient( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)
 
-	If pIrcClient->ClientSocket <> INVALID_SOCKET Then
-		closesocket(pIrcClient->ClientSocket)
-	End If
-
-	IrcClientCleanup()
+	Win95SocketCloseConnection(pIrcClient->ClientSocket)
+	DestroyWin95Socket(pIrcClient->ClientSocket)
 	Deallocate(pIrcClient->pRecvContext)
-	CloseHandle(pIrcClient->hEvent)
 	Deallocate(pIrcClient)
 
 End Sub
@@ -2823,12 +2371,12 @@ Public Function IrcClientOpenConnection( _
 		ByVal RealName As BSTR _
 	)As HRESULT
 
-	ResetEvent(pIrcClient->hEvent)
+	' WSAAsyncSelect(serverSocket, hwnd, WM_SOCKET, FD_READ Or FD_WRITE Or FD_CLOSE Or FD_CONNECT)
 
 	pIrcClient->pRecvContext->cbLength = 0
 	pIrcClient->ClientNick = Nick
 
-	Dim ConnectionString As ValueBSTR = MakeConnectionString( _
+	pIrcClient->ConnectionString = MakeConnectionString( _
 		Password, _
 		Nick, _
 		User, _
@@ -2844,44 +2392,20 @@ Public Function IrcClientOpenConnection( _
 		tPort = @WStr("6667")
 	End If
 
-	Dim tLocalServer As WString Ptr = Any
-	If LocalServer = NULL Then
-		tLocalServer = @WStr("")
-	Else
-		tLocalServer = LocalServer
-	End If
-
-	Dim tLocalPort As WString Ptr = Any
-	If LocalPort = NULL Then
-		tLocalPort = @WStr("")
-	Else
-		tLocalPort = LocalPort
-	End If
-
-	Dim hrConnect As HRESULT = ConnectToServerW( _
-		tLocalServer, _
-		tLocalPort, _
+	Dim pState As Win95AsyncResult Ptr = Any
+	Dim hrConnect As HRESULT = Win95SocketBeginConnect( _
+		pIrcClient->ClientSocket, _
+		pIrcClient, _
+		LocalServer, _
+		LocalPort, _
 		Server, _
 		tPort, _
-		@pIrcClient->ClientSocket _
+		@SocketOnConnect, _
+		@pState _
 	)
 	If FAILED(hrConnect) Then
 		pIrcClient->ErrorCode = hrConnect
 		Return hrConnect
-	End If
-
-	Dim hrRecv As HRESULT = StartRecvOverlapped(pIrcClient)
-	If FAILED(hrRecv) Then
-		CloseSocketConnection(pIrcClient->ClientSocket)
-		pIrcClient->ErrorCode = hrRecv
-		Return hrRecv
-	End If
-
-	Dim hrSend As HRESULT = StartSendOverlapped(pIrcClient, ConnectionString)
-	If FAILED(hrSend) Then
-		CloseSocketConnection(pIrcClient->ClientSocket)
-		pIrcClient->ErrorCode = hrSend
-		Return hrSend
 	End If
 
 	pIrcClient->ErrorCode = S_OK
@@ -2894,11 +2418,8 @@ Public Sub IrcClientCloseConnection( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)
 
-	CloseSocketConnection(pIrcClient->ClientSocket)
-	pIrcClient->ClientSocket = INVALID_SOCKET
+	Win95SocketCloseConnection(pIrcClient->ClientSocket)
 	pIrcClient->ErrorCode = S_OK
-
-	SetEvent(pIrcClient->hEvent)
 
 End Sub
 
@@ -2906,93 +2427,8 @@ Public Function IrcClientMainLoop( _
 		ByVal pIrcClient As IrcClient Ptr _
 	)As HRESULT
 
-	Do
-		Dim dwWaitResult As DWORD = WaitForSingleObjectEx( _
-			pIrcClient->hEvent, _
-			INFINITE, _
-			TRUE _
-		)
+	Dim hrLoop As HRESULT = Win95SocketMainLoop(pIrcClient->ClientSocket)
 
-		Select Case dwWaitResult
-
-			Case WAIT_OBJECT_0
-				' The event became a signal
-				' exit from loop
-				Return S_FALSE
-
-			Case WAIT_ABANDONED
-				Return HRESULT_FROM_WIN32(WAIT_ABANDONED)
-
-			Case WAIT_IO_COMPLETION
-				' The asynchronous procedure has ended
-				' we continue to wait
-
-			Case WAIT_TIMEOUT
-				' Timed out
-				' no response from server
-				Return HRESULT_FROM_WIN32(WAIT_TIMEOUT)
-
-			Case WAIT_FAILED
-				' The event closed
-				Dim dwError As DWORD = GetLastError()
-				Return HRESULT_FROM_WIN32(dwError)
-
-			Case Else
-				Return E_UNEXPECTED
-
-		End Select
-
-	Loop
-
-	Return pIrcClient->ErrorCode
-
-End Function
-
-Public Function IrcClientWaitMessage( _
-		ByVal pIrcClient As IrcClient Ptr _
-	)As HRESULT
-
-	Dim dwWaitResult As DWORD = MsgWaitForMultipleObjectsEx( _
-		1, _
-		@pIrcClient->hEvent, _
-		INFINITE, _
-		QS_ALLEVENTS Or QS_ALLINPUT Or QS_ALLPOSTMESSAGE, _
-		MWMO_ALERTABLE Or MWMO_INPUTAVAILABLE _
-	)
-
-	Select Case dwWaitResult
-
-		Case WAIT_OBJECT_0
-			' The event became a signal
-			' exit from loop
-			Return S_FALSE
-
-		Case WAIT_OBJECT_0 + 1
-			' Messages have been added to the message queue
-			' they need to be processed
-			Return pIrcClient->ErrorCode
-
-		Case WAIT_ABANDONED
-			Return HRESULT_FROM_WIN32(WAIT_ABANDONED)
-
-		Case WAIT_IO_COMPLETION
-			' The asynchronous procedure has ended
-			' we continue to wait
-			Return pIrcClient->ErrorCode
-
-		Case WAIT_TIMEOUT
-			' Timed out
-			' no response from server
-			Return HRESULT_FROM_WIN32(WAIT_TIMEOUT)
-
-		Case WAIT_FAILED
-			' The event closed
-			Dim dwError As DWORD = GetLastError()
-			Return HRESULT_FROM_WIN32(dwError)
-
-		Case Else
-			Return E_UNEXPECTED
-
-	End Select
+	Return hrLoop
 
 End Function

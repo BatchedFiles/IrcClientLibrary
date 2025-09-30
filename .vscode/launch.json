@@ -8,30 +8,30 @@
 
             /* Путь к скомпилированной программе */
             "program": "${workspaceFolder}/gui.exe",
-            
+
             /* параметры программы */
             /* сервер, порт, ник, канал */
             "args": [
-                "irc.tambov.ru",
-                "7770",
-                "JemmaSimmons",
-                "#chlor"
-                
+                // "irc.tambov.ru",
+                // "7770",
+                // "JemmaSimmons",
+                // "#chlor"
+
                 // "irc6.tambov.ru",
                 // "7770",
                 // "JemmaSimmons",
                 // "#chlor"
-                
-                // "irc.quakenet.org",
-                // "6667",
-                // "JemmaSimmons",
-                // "#chlor"
-                
+
+                "irc.quakenet.org",
+                "6667",
+                "JemmaSimmons",
+                "#chlor"
+
                 // "irc.libera.chat",
                 // "6667",
                 // "JemmaSimmons",
                 // "#chlor"
-                
+
                 // "irc.pouque.net",
                 // "6667",
                 // "JemmaSimmons",

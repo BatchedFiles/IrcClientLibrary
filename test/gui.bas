@@ -141,58 +141,6 @@ Private Sub OnRawMessage( _
 
 End Sub
 
-Private Function MessageLoop( _
-		ByVal hWin As HWND, _
-		ByVal pContext As WindowContext Ptr _
-	)As Integer
-
-	Do
-		Dim hrLoop As HRESULT = IrcClientWaitMessage(pContext->pClient)
-
-		If FAILED(hrLoop) Then
-			IrcClientCloseConnection(pContext->pClient)
-			Return 1
-		End If
-
-		Select Case hrLoop
-			Case S_OK
-				Do
-					Dim wMsg As MSG = Any
-					Dim resGetMessage As BOOL = PeekMessage( _
-						@wMsg, _
-						NULL, _
-						0, _
-						0, _
-						PM_REMOVE _
-					)
-					If resGetMessage = 0 Then
-						Exit Do
-					End If
-
-					If wMsg.message = WM_QUIT Then
-						PostQuitMessage(wMsg.wParam)
-						Return 0
-					End If
-
-					Dim resDialogMessage As BOOL = IsDialogMessage( _
-						hWin, _
-						@wMsg _
-					)
-
-					If resDialogMessage = 0 Then
-						TranslateMessage(@wMsg)
-						DispatchMessage(@wMsg)
-					End If
-				Loop
-
-			Case Else ' S_FALSE
-				IrcClientCloseConnection(pContext->pClient)
-				Return 0
-		End Select
-	Loop
-
-End Function
-
 Private Sub DisableWindow( _
 		ByVal hWin As HWND, _
 		ByVal hwndControl As HWND _
@@ -210,6 +158,77 @@ Private Sub DisableWindow( _
 
 End Sub
 
+Private Sub MainForm_OnLoad(ByVal pContext As WindowContext Ptr, ByVal hWin As HWND)
+
+	pContext->hWndStart = CreateWindowEx(0, _
+		WC_BUTTON, _
+		"Start", _
+		WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+		10, 10, 120, 36, _
+		hWin, _
+		Cast(HMENU, IDC_START), _
+		GetModuleHandle(0), _
+		NULL _
+	)
+	pContext->hWndStop = CreateWindowEx(0, _
+		WC_BUTTON, _
+		"Stop", _
+		WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+		10 + 120 + 10, 10, 120, 36, _
+		hWin, _
+		Cast(HMENU, IDC_STOP), _
+		GetModuleHandle(0), _
+		NULL _
+	)
+	pContext->hWndReceive = CreateWindowEx(0, _
+		WC_EDIT, _
+		NULL, _
+		WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE Or ES_READONLY, _
+		10, 56, 640, 480, _
+		hWin, _
+		Cast(HMENU, IDC_RECEIVE), _
+		GetModuleHandle(0), _
+		NULL _
+	)
+	pContext->hWndMessage = CreateWindowEx(0, _
+		WC_EDIT, _
+		NULL, _
+		WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_TABSTOP Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
+		10, 56 + 480 + 10, 640 - 120 - 10, 120, _
+		hWin, _
+		Cast(HMENU, IDC_MESSAGE), _
+		GetModuleHandle(0), _
+		NULL _
+	)
+	pContext->hWndSend = CreateWindowEx(0, _
+		WC_BUTTON, _
+		"Send", _
+		WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
+		10 + 640 - 120 - 10 + 10, 56 + 480 + 10 + 10, 120, 36, _
+		hWin, _
+		Cast(HMENU, IDC_SEND), _
+		GetModuleHandle(0), _
+		NULL _
+	)
+
+	Dim Ev As IrcEvents = Any
+	ZeroMemory(@Ev, SizeOf(IrcEvents))
+	Ev.lpfnNumericMessageEvent = @OnNumericMessage
+	Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
+	Ev.lpfnSendedRawMessageEvent = @OnRawMessage
+
+	pContext->pClient = CreateIrcClient(@Ev, pContext)
+
+	Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
+	IrcClientSetClientVersion(pContext->pClient, ClientVersion)
+	SysFreeString(ClientVersion)
+
+	Dim UserInfo As BSTR = SysAllocString(WStr("zamabuvaraeu"))
+	IrcClientSetUserInfo(pContext->pClient, UserInfo)
+	SysFreeString(UserInfo)
+
+End Sub
+
 Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
 
 	Dim pContext As WindowContext Ptr = Any
@@ -218,74 +237,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 		Dim pStruct As CREATESTRUCT Ptr = CPtr(CREATESTRUCT Ptr, lParam)
 		pContext = pStruct->lpCreateParams
 		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pContext))
-
-		pContext->hWndStart = CreateWindowEx(0, _
-			WC_BUTTON, _
-			"Start", _
-			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-			10, 10, 120, 36, _
-			hWin, _
-			Cast(HMENU, IDC_START), _
-			GetModuleHandle(0), _
-			NULL _
-		)
-		pContext->hWndStop = CreateWindowEx(0, _
-			WC_BUTTON, _
-			"Stop", _
-			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-			10 + 120 + 10, 10, 120, 36, _
-			hWin, _
-			Cast(HMENU, IDC_STOP), _
-			GetModuleHandle(0), _
-			NULL _
-		)
-		pContext->hWndReceive = CreateWindowEx(0, _
-			WC_EDIT, _
-			NULL, _
-			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_BORDER Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE Or ES_READONLY, _
-			10, 56, 640, 480, _
-			hWin, _
-			Cast(HMENU, IDC_RECEIVE), _
-			GetModuleHandle(0), _
-			NULL _
-		)
-		pContext->hWndMessage = CreateWindowEx(0, _
-			WC_EDIT, _
-			NULL, _
-			WS_CHILD Or WS_VISIBLE Or WS_BORDER Or WS_TABSTOP Or WS_VSCROLL Or WS_HSCROLL Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_MULTILINE, _
-			10, 56 + 480 + 10, 640 - 120 - 10, 120, _
-			hWin, _
-			Cast(HMENU, IDC_MESSAGE), _
-			GetModuleHandle(0), _
-			NULL _
-		)
-		pContext->hWndSend = CreateWindowEx(0, _
-			WC_BUTTON, _
-			"Send", _
-			WS_CHILD Or WS_VISIBLE Or WS_TABSTOP Or WS_DISABLED Or BS_PUSHBUTTON Or WS_CLIPSIBLINGS, _
-			10 + 640 - 120 - 10 + 10, 56 + 480 + 10 + 10, 120, 36, _
-			hWin, _
-			Cast(HMENU, IDC_SEND), _
-			GetModuleHandle(0), _
-			NULL _
-		)
-
-		Dim Ev As IrcEvents = Any
-		ZeroMemory(@Ev, SizeOf(IrcEvents))
-		Ev.lpfnNumericMessageEvent = @OnNumericMessage
-		Ev.lpfnReceivedRawMessageEvent = @OnRawMessage
-		Ev.lpfnSendedRawMessageEvent = @OnRawMessage
-
-		pContext->pClient = CreateIrcClient(@Ev, pContext)
-
-		Dim ClientVersion As BSTR = SysAllocString("IrcBot 1.0; FreeBASIC 1.10.1")
-		IrcClientSetClientVersion(pContext->pClient, ClientVersion)
-		SysFreeString(ClientVersion)
-
-		Dim UserInfo As BSTR = SysAllocString(WStr("zamabuvaraeu"))
-		IrcClientSetUserInfo(pContext->pClient, UserInfo)
-		SysFreeString(UserInfo)
-
+		MainForm_OnLoad(pContext, hWin)
 		Return 0
 	End If
 
@@ -297,7 +249,7 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 
 			Select Case HiWord(wParam)
 
-				Case 0 ' ???? ??? ??????
+				Case 0
 
 					Select Case LoWord(wParam)
 
@@ -313,12 +265,6 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 								DisableWindow(hWin, pContext->hWndStart)
 								EnableWindow(pContext->hwndStop, 1)
 								EnableWindow(pContext->hwndSend, 1)
-
-								MessageLoop(hWin, pContext)
-
-								EnableWindow(pContext->hWndStart, 1)
-								DisableWindow(hWin, pContext->hwndStop)
-								DisableWindow(hWin, pContext->hwndSend)
 							End If
 
 						Case IDC_STOP
@@ -421,7 +367,8 @@ Private Function wWinMain( _
 		.hIconSm       = NULL
 	End With
 
-	If RegisterClassEx(@wcls) = FALSE Then
+	Dim resRegister As ATOM = RegisterClassEx(@wcls)
+	If resRegister = 0 Then
 		Return 1
 	End If
 
@@ -441,7 +388,8 @@ Private Function wWinMain( _
 	Context.Nick = SysAllocString(Args[3])
 	Context.Channel = SysAllocString(Args[4])
 
-	Dim hWin As HWND = CreateWindowEx(WS_EX_OVERLAPPEDWINDOW, _
+	Dim hWin As HWND = CreateWindowEx( _
+		WS_EX_OVERLAPPEDWINDOW, _
 		@MainWindowClassName, _
 		@NineWindowTitle, _
 		WS_OVERLAPPEDWINDOW Or WS_CLIPCHILDREN, _

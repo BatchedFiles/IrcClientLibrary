@@ -34,10 +34,6 @@ Sub OnRawMessage( _
 	Print *Cast(ZString Ptr, pBytes)
 End Sub
 
-' Server = SysAllocString("chat.freenode.net")
-' Nick = SysAllocString("LeoFitz")
-' Channel = SysAllocString("#freebasic-ru")
-' Message = SysAllocString("Yes, me too")
 Server = SysAllocString("irc.pouque.net")
 Nick = SysAllocString("LeoFitz")
 Channel = SysAllocString("#chlor")

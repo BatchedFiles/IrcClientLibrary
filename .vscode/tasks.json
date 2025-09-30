@@ -13,6 +13,7 @@
 				"all",
 				"-i", "src",
 				"test\\simplebot.bas",
+				"src\\Win95Socket.bas",
 				"src\\IrcClient.bas"
 			],
 			"problemMatcher": [],
@@ -33,6 +34,7 @@
 				"all",
 				"-i", "src",
 				"test\\bot.bas",
+				"src\\Win95Socket.bas",
 				"src\\IrcClient.bas"
 			],
 			"problemMatcher": [],
@@ -56,6 +58,7 @@
 				"-d", "UNICODE",
 				"test\\gui.bas",
 				"test\\Resources.RC",
+				"src\\Win95Socket.bas",
 				"src\\IrcClient.bas"
 			],
 			"problemMatcher": [],
