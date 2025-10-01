@@ -36,6 +36,7 @@ Type _Win95Socket
 	hWin As HWND
 	ClientRecvContext As ClientRecvCallback
 	ClientConnectContext As ClientConnectCallback
+	IsConsole As Boolean
 End Type
 
 Type TextBuffer
@@ -336,6 +337,7 @@ Public Function CreateWin95Socket( _
 		If hWin Then
 			pSock->hWin = hWin
 			pSock->ClientSocket = INVALID_SOCKET
+			pSock->IsConsole = False
 
 			Return pSock
 		End If
@@ -608,6 +610,11 @@ Public Sub Win95SocketCloseConnection( _
 		ByVal pSock As Win95Socket Ptr _
 	)
 
+	If pSock->IsConsole Then
+		PostQuitMessage(0)
+		pSock->IsConsole = False
+	End If
+
 	If pSock->ClientSocket <> INVALID_SOCKET Then
 		shutdown(pSock->ClientSocket, SD_BOTH)
 		closesocket(pSock->ClientSocket)
@@ -619,6 +626,8 @@ End Sub
 Public Function Win95SocketMainLoop( _
 		ByVal pSock As Win95Socket Ptr _
 	)As HRESULT
+
+	pSock->IsConsole = True
 
 	Dim m As MSG = Any
 	Dim GetMessageResult As Integer = GetMessage(@m, NULL, 0, 0)
