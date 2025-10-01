@@ -2371,8 +2371,6 @@ Public Function IrcClientOpenConnection( _
 		ByVal RealName As BSTR _
 	)As HRESULT
 
-	' WSAAsyncSelect(serverSocket, hwnd, WM_SOCKET, FD_READ Or FD_WRITE Or FD_CLOSE Or FD_CONNECT)
-
 	pIrcClient->pRecvContext->cbLength = 0
 	pIrcClient->ClientNick = Nick
 
