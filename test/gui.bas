@@ -80,19 +80,6 @@ Private Sub AppendLengthText( _
 
 End Sub
 
-Private Sub AppendTextBstr( _
-		ByVal hwndControl As HWND, _
-		ByVal lptszText As LPTSTR _
-	)
-
-	Dim OldTextLength As Long = GetWindowTextLength(hwndControl)
-
-	Edit_SetSel(hwndControl, OldTextLength, OldTextLength)
-	Edit_ReplaceSel(hwndControl, lptszText)
-	Edit_ScrollCaret(hwndControl)
-
-End Sub
-
 Private Sub OnNumericMessage( _
 		ByVal pClientData As LPCLIENTDATA, _
 		ByVal pIrcPrefix As IrcPrefix Ptr, _
@@ -121,8 +108,13 @@ Private Sub OnRawMessage( _
 	Dim buf(IRCPROTOCOL_BYTESPERMESSAGEMAXIMUM) As TCHAR = Any
 
 	#ifdef UNICODE
+		Dim CodePage As Integer = Any
+		IrcClientGetCodePage( _
+			pContext->pClient, _
+			@CodePage _
+		)
 		Dim Length As Long = MultiByteToWideChar( _
-			CP_UTF8, _
+			CodePage, _
 			0, _
 			pBytes, _
 			Count, _
@@ -229,6 +221,56 @@ Private Sub MainForm_OnLoad(ByVal pContext As WindowContext Ptr, ByVal hWin As H
 
 End Sub
 
+Private Sub MainForm_OnUnload(ByVal pContext As WindowContext Ptr, ByVal hWin As HWND)
+
+	DestroyIrcClient(pContext->pClient)
+
+End Sub
+
+Private Sub OnStart(ByVal pContext As WindowContext Ptr, ByVal hWin As HWND)
+
+	Dim hrOpen As HRESULT = IrcClientOpenConnectionSimple2( _
+		pContext->pClient, _
+		pContext->Server, _
+		pContext->Port, _
+		pContext->Nick _
+	)
+
+	If SUCCEEDED(hrOpen) Then
+		DisableWindow(hWin, pContext->hWndStart)
+		EnableWindow(pContext->hwndStop, 1)
+		EnableWindow(pContext->hwndSend, 1)
+	End If
+
+End Sub
+
+Private Sub OnStop(ByVal pContext As WindowContext Ptr, ByVal hWin As HWND)
+
+	IrcClientQuitFromServerSimple(pContext->pClient)
+	EnableWindow(pContext->hWndStart, 1)
+	DisableWindow(hWin, pContext->hwndStop)
+
+End Sub
+
+Private Sub OnSend(ByVal pContext As WindowContext Ptr, ByVal hWin As HWND)
+
+	Dim bstrMessage As BSTR = GetDlgItemBstr(pContext->hwndMessage)
+
+	If bstrMessage Then
+		IrcClientSendPrivateMessage( _
+			pContext->pClient, _
+			pContext->Channel, _
+			bstrMessage _
+		)
+		SysFreeString(bstrMessage)
+		Edit_SetText( _
+			pContext->hwndMessage, _
+			NULL _
+		)
+	End If
+
+End Sub
+
 Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal wParam As WPARAM, ByVal lParam As LPARAM) As LRESULT
 
 	Dim pContext As WindowContext Ptr = Any
@@ -254,45 +296,20 @@ Private Function MainFormWndProc(ByVal hWin As HWND, ByVal wMsg As UINT, ByVal w
 					Select Case LoWord(wParam)
 
 						Case IDC_START
-							Dim hrOpen As HRESULT = IrcClientOpenConnectionSimple2( _
-								pContext->pClient, _
-								pContext->Server, _
-								pContext->Port, _
-								pContext->Nick _
-							)
-
-							If SUCCEEDED(hrOpen) Then
-								DisableWindow(hWin, pContext->hWndStart)
-								EnableWindow(pContext->hwndStop, 1)
-								EnableWindow(pContext->hwndSend, 1)
-							End If
+							OnStart(pContext, hWin)
 
 						Case IDC_STOP
-							IrcClientQuitFromServerSimple(pContext->pClient)
-							EnableWindow(pContext->hWndStart, 1)
-							DisableWindow(hWin, pContext->hwndStop)
+							OnStop(pContext, hWin)
 
 						Case IDC_SEND
-							Dim bstrMessage As BSTR = GetDlgItemBstr(pContext->hwndMessage)
+							OnSend(pContext, hWin)
 
-							If bstrMessage Then
-								IrcClientSendPrivateMessage( _
-									pContext->pClient, _
-									pContext->Channel, _
-									bstrMessage _
-								)
-								SysFreeString(bstrMessage)
-								Edit_SetText( _
-									pContext->hwndMessage, _
-									NULL _
-								)
-							End If
 					End Select
 
 			End Select
 
 		Case WM_DESTROY
-			DestroyIrcClient(pContext->pClient)
+			MainForm_OnUnload(pContext, hWin)
 			PostQuitMessage(0)
 
 		Case Else
