@@ -24,6 +24,10 @@ Sub OnIrcPrivateMessage( _
 		ByVal MessageText As BSTR _
 	)
 	IrcClientSendPrivateMessage(pClient, pIrcPrefix->Nick, Message)
+	If lstrcmpW(MessageText, WStr("QUIT")) = 0 Then
+		IrcClientQuitFromServerSimple(pClient)
+		IrcClientCloseConnection(pClient)
+	End If
 End Sub
 
 Sub OnRawMessage( _
@@ -34,10 +38,10 @@ Sub OnRawMessage( _
 	Print *Cast(ZString Ptr, pBytes)
 End Sub
 
-Server = SysAllocString("irc.pouque.net")
-Nick = SysAllocString("LeoFitz")
-Channel = SysAllocString("#chlor")
-Message = SysAllocString("Yes, me too")
+Server = SysAllocString(WStr("irc.quakenet.org"))
+Nick = SysAllocString(WStr("LeoFitz"))
+Channel = SysAllocString(WStr("#chlor"))
+Message = SysAllocString(WStr("Yes, me too"))
 
 Dim Ev As IrcEvents
 Ev.lpfnPrivateMessageEvent = @OnIrcPrivateMessage

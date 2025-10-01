@@ -10,7 +10,7 @@ Sub OnIrcPrivateMessage( _
 	IrcClientSendPrivateMessage( _
 		pClient, _
 		pIrcPrefix->Nick, _
-		SysAllocString("Yes, me too") _
+		SysAllocString(WStr("Yes, me too")) _
 	)
 End Sub
 
@@ -21,10 +21,10 @@ pClient = CreateIrcClient(@Ev, 0)
 
 IrcClientOpenConnectionSimple1( _
 	pClient, _
-	SysAllocString("irc.pouque.net"), _
-	SysAllocString("LeoFitz") _
+	SysAllocString(WStr("irc.pouque.net")), _
+	SysAllocString(WStr("LeoFitz")) _
 )
-IrcClientJoinChannel(pClient, SysAllocString("#chlor"))
+IrcClientJoinChannel(pClient, SysAllocString(WStr("#chlor")))
 
 IrcClientMainLoop(pClient)
 
