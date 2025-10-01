@@ -320,6 +320,149 @@ Private Function Win95SocketCreateHiddenWindow( _
 
 End Function
 
+Public Function CreateWin95Socket( _
+	) As Win95Socket Ptr
+
+	Dim hrStartup As HRESULT = Win95SocketStartup()
+	If FAILED(hrStartup) Then
+		Return NULL
+	End If
+
+	Dim pSock As Win95Socket Ptr = Allocate(SizeOf(Win95Socket))
+
+	If pSock Then
+		Dim hWin As HWND = Win95SocketCreateHiddenWindow(pSock)
+
+		If hWin Then
+			pSock->hWin = hWin
+			pSock->ClientSocket = INVALID_SOCKET
+
+			Return pSock
+		End If
+
+		Deallocate(pSock)
+	End If
+
+	Return NULL
+
+End Function
+
+Public Sub DestroyWin95Socket( _
+		ByVal pSock As Win95Socket Ptr _
+	)
+
+	Win95SocketCloseConnection(pSock)
+	DestroyWindow(pSock->hWin)
+	Deallocate(pSock)
+	Win95SocketCleanup()
+
+End Sub
+
+Public Function Win95SocketBeginWrite( _
+		ByVal pSock As Win95Socket Ptr, _
+		ByVal lpContext As Any Ptr, _
+		ByVal Buffer As Any Ptr, _
+		ByVal Count As DWORD, _
+		ByVal pCB As OnWriteData, _
+		ByVal ppState As Win95AsyncResult Ptr Ptr _
+	)As HRESULT
+
+	Dim cbTransferred As Long = send( _
+		pSock->ClientSocket, _
+		Buffer, _
+		Count, _
+		0 _
+	)
+
+	If cbTransferred = SOCKET_ERROR Then
+		Dim dwError As Long = WSAGetLastError()
+		*ppState = NULL
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+
+	Scope
+		Dim pState As Win95AsyncResult Ptr = Allocate(SizeOf(Win95AsyncResult))
+		If pState = NULL Then
+			*ppState = NULL
+			Return E_OUTOFMEMORY
+		End If
+
+		pState->lpContext = lpContext
+		pState->pCB = pCB
+
+		*ppState = pState
+
+		PostMessage( _
+			pSock->hWin, _
+			WM_SENDCALLBACK, _
+			cbTransferred, _
+			Cast(LPARAM, pState) _
+		)
+	End Scope
+
+	Return S_OK
+
+End Function
+
+Public Function Win95SocketBeginRead( _
+		ByVal pSock As Win95Socket Ptr, _
+		ByVal lpContext As Any Ptr, _
+		ByVal Buffer As Any Ptr, _
+		ByVal Count As DWORD, _
+		ByVal pCB As OnReceiveData, _
+		ByVal ppState As Win95AsyncResult Ptr Ptr _
+	)As HRESULT
+
+	*ppState = NULL
+
+	Dim resRead As Long = recv( _
+		pSock->ClientSocket, _
+		Buffer, _
+		Count, _
+		0 _
+	)
+
+	If resRead = SOCKET_ERROR Then
+		Dim dwError As Long = WSAGetLastError()
+		If dwError = WSAEWOULDBLOCK Then
+			pSock->ClientRecvContext.RecvCallback = pCB
+			pSock->ClientRecvContext.lpParameter = lpContext
+			pSock->ClientRecvContext.ClientBuffer = Buffer
+			pSock->ClientRecvContext.BufferLength = Count
+			pSock->ClientRecvContext.dwError = 0
+
+			Return S_OK
+		End If
+
+		ZeroMemory(@pSock->ClientRecvContext, SizeOf(ClientRecvCallback))
+
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+
+	Scope
+		Dim pState As ClientRecvCallback Ptr = Allocate(SizeOf(ClientRecvCallback))
+		If pState = NULL Then
+			Return E_OUTOFMEMORY
+		End If
+
+		pState->RecvCallback = pCB
+		pState->lpParameter = lpContext
+		pState->ClientBuffer = Buffer
+		pState->BufferLength = Count
+		pState->dwError = 0
+
+		PostMessage( _
+			pSock->hWin, _
+			WM_READCALLBACK, _
+			resRead, _
+			Cast(LPARAM, pState) _
+		)
+	End Scope
+
+	Return S_OK
+
+End Function
+
 Public Function Win95SocketBeginConnect( _
 		ByVal pSock As Win95Socket Ptr, _
 		ByVal lpContext As Any Ptr, _
@@ -461,32 +604,6 @@ Public Function Win95SocketBeginConnect( _
 
 End Function
 
-Public Function CreateWin95Socket( _
-	) As Win95Socket Ptr
-
-	Dim hrStartup As HRESULT = Win95SocketStartup()
-	If FAILED(hrStartup) Then
-		Return NULL
-	End If
-
-	Dim pSock As Win95Socket Ptr = Allocate(SizeOf(Win95Socket))
-
-	If pSock Then
-		Dim hWin As HWND = Win95SocketCreateHiddenWindow(pSock)
-
-		If hWin Then
-			pSock->hWin = hWin
-
-			Return pSock
-		End If
-
-		Deallocate(pSock)
-	End If
-
-	Return NULL
-
-End Function
-
 Public Sub Win95SocketCloseConnection( _
 		ByVal pSock As Win95Socket Ptr _
 	)
@@ -498,122 +615,6 @@ Public Sub Win95SocketCloseConnection( _
 	End If
 
 End Sub
-
-Public Sub DestroyWin95Socket( _
-		ByVal pSock As Win95Socket Ptr _
-	)
-
-	Win95SocketCloseConnection(pSock)
-	DestroyWindow(pSock->hWin)
-	Deallocate(pSock)
-	Win95SocketCleanup()
-
-End Sub
-
-Public Function Win95SocketBeginWrite( _
-		ByVal pSock As Win95Socket Ptr, _
-		ByVal lpContext As Any Ptr, _
-		ByVal Buffer As Any Ptr, _
-		ByVal Count As DWORD, _
-		ByVal pCB As OnWriteData, _
-		ByVal ppState As Win95AsyncResult Ptr Ptr _
-	)As HRESULT
-
-	Dim cbTransferred As Long = send( _
-		pSock->ClientSocket, _
-		Buffer, _
-		Count, _
-		0 _
-	)
-
-	If cbTransferred = SOCKET_ERROR Then
-		Dim dwError As Long = WSAGetLastError()
-		*ppState = NULL
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	Scope
-		Dim pState As Win95AsyncResult Ptr = Allocate(SizeOf(Win95AsyncResult))
-		If pState = NULL Then
-			*ppState = NULL
-			Return E_OUTOFMEMORY
-		End If
-
-		pState->lpContext = lpContext
-		pState->pCB = pCB
-
-		*ppState = pState
-
-		PostMessage( _
-			pSock->hWin, _
-			WM_SENDCALLBACK, _
-			cbTransferred, _
-			Cast(LPARAM, pState) _
-		)
-	End Scope
-
-	Return S_OK
-
-End Function
-
-Public Function Win95SocketBeginRead( _
-		ByVal pSock As Win95Socket Ptr, _
-		ByVal lpContext As Any Ptr, _
-		ByVal Buffer As Any Ptr, _
-		ByVal Count As DWORD, _
-		ByVal pCB As OnReceiveData, _
-		ByVal ppState As Win95AsyncResult Ptr Ptr _
-	)As HRESULT
-
-	*ppState = NULL
-
-	Dim resRead As Long = recv( _
-		pSock->ClientSocket, _
-		Buffer, _
-		Count, _
-		0 _
-	)
-
-	If resRead = SOCKET_ERROR Then
-		Dim dwError As Long = WSAGetLastError()
-		If dwError = WSAEWOULDBLOCK Then
-			pSock->ClientRecvContext.RecvCallback = pCB
-			pSock->ClientRecvContext.lpParameter = lpContext
-			pSock->ClientRecvContext.ClientBuffer = Buffer
-			pSock->ClientRecvContext.BufferLength = Count
-			pSock->ClientRecvContext.dwError = 0
-
-			Return S_OK
-		End If
-
-		ZeroMemory(@pSock->ClientRecvContext, SizeOf(ClientRecvCallback))
-
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
-
-	Scope
-		Dim pState As ClientRecvCallback Ptr = Allocate(SizeOf(ClientRecvCallback))
-		If pState = NULL Then
-			Return E_OUTOFMEMORY
-		End If
-
-		pState->RecvCallback = pCB
-		pState->lpParameter = lpContext
-		pState->ClientBuffer = Buffer
-		pState->BufferLength = Count
-		pState->dwError = 0
-
-		PostMessage( _
-			pSock->hWin, _
-			WM_READCALLBACK, _
-			resRead, _
-			Cast(LPARAM, pState) _
-		)
-	End Scope
-
-	Return S_OK
-
-End Function
 
 Public Function Win95SocketMainLoop( _
 		ByVal pSock As Win95Socket Ptr _
